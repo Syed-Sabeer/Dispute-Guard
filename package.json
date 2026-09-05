@@ -3,7 +3,9 @@
     "type": "module",
     "scripts": {
         "dev": "vite",
-        "build": "vite build"
+        "build": "vite build",
+        "shopify:dev": "shopify app dev",
+        "shopify:deploy": "php artisan chargeguard:shopify-config && shopify app deploy"
     },
     "devDependencies": {
         "axios": "^1.6.4",

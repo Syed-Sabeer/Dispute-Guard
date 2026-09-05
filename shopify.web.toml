@@ -1,0 +1,5 @@
+name = "ChargeGuard Laravel"
+roles = ["frontend", "backend"]
+webhooks_path = "/webhooks/shopify"
+[commands]
+dev = "php scripts/shopify-serve.php"

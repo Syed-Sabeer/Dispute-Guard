@@ -1,0 +1,44 @@
+# Link this placeholder configuration to your own app with Shopify CLI.
+client_id = ""
+name = "ChargeGuard"
+application_url = "https://app.example.com/dashboard"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = true
+include_config_on_deploy = true
+
+[access_scopes]
+scopes = "read_orders,read_shopify_payments_disputes"
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = ["https://app.example.com/auth/patch-id-token"]
+
+[webhooks]
+# Synchronized from config/shopify.php using chargeguard:shopify-config.
+api_version = "2026-07"
+
+[[webhooks.subscriptions]]
+topics = ["disputes/create"]
+uri = "/webhooks/shopify/disputes/create"
+
+[[webhooks.subscriptions]]
+topics = ["disputes/update"]
+uri = "/webhooks/shopify/disputes/update"
+
+[[webhooks.subscriptions]]
+topics = ["app/uninstalled"]
+uri = "/webhooks/shopify/app/uninstalled"
+
+[[webhooks.subscriptions]]
+compliance_topics = ["customers/data_request"]
+uri = "/webhooks/shopify/customers/data_request"
+
+[[webhooks.subscriptions]]
+compliance_topics = ["customers/redact"]
+uri = "/webhooks/shopify/customers/redact"
+
+[[webhooks.subscriptions]]
+compliance_topics = ["shop/redact"]
+uri = "/webhooks/shopify/shop/redact"

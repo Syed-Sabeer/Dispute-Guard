@@ -1,0 +1,6 @@
+query ChargeGuardDispute($id: ID!) {
+  dispute(id: $id) {
+    id amount { amount currencyCode } initiatedAt evidenceDueBy status type
+    reasonDetails { reason } order { id }
+  }
+}

@@ -12,7 +12,8 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // $schedule->command('inspire')->hourly();
+        $schedule->command('chargeguard:maintain')->everyFiveMinutes()->withoutOverlapping();
+        $schedule->command('queue:prune-failed --hours=24')->daily()->withoutOverlapping();
     }
 
     /**

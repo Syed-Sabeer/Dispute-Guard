@@ -29,6 +29,8 @@ class RouteServiceProvider extends ServiceProvider
         });
 
         $this->routes(function () {
+            Route::middleware(\Illuminate\Routing\Middleware\SubstituteBindings::class)->group(base_path('routes/merchant.php'));
+            Route::group([], base_path('routes/shopify.php'));
             Route::middleware('api')
                 ->prefix('api')
                 ->group(base_path('routes/api.php'));

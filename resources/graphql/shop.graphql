@@ -1,0 +1,1 @@
+query ChargeGuardShop { shop { id name email ianaTimezone currencyCode } }

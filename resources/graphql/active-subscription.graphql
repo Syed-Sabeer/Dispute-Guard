@@ -1,0 +1,6 @@
+query ChargeGuardSubscription($appId: ID!, $shopId: ID!) {
+  activeSubscription(appId: $appId, shopId: $shopId) {
+    currentBillingCycle { endTime }
+    items { handle price { active } }
+  }
+}
