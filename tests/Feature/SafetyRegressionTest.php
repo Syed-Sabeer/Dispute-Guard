@@ -8,10 +8,12 @@ use App\Jobs\ProcessDisputeCreated;
 use App\Jobs\ProcessDisputeUpdated;
 use App\Jobs\SendDisputeCustomerEmail;
 use App\Models\Dispute;
+use App\Models\EmailLog;
 use App\Models\WebhookEvent;
 use App\Services\Disputes\DisputeProcessor;
 use App\Services\Shopify\ShopifyDisputeService;
 use App\Services\Shopify\ShopifyOrderService;
+use Database\Seeders\DemoDataSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
@@ -113,5 +115,32 @@ class SafetyRegressionTest extends TestCase
         $shop = $this->shop();
         $token = $this->token($shop, ['iss' => 'https://evil.example/admin']);
         $this->withToken($token)->getJson('/dashboard')->assertStatus(401);
+    }
+
+    public function test_shipment_changes_while_queued_cancel_stale_email(): void
+    {
+        config(['chargeguard.test_mode' => false]);
+        Queue::fake();
+        Mail::fake();
+        $shop = $this->shop();
+        $this->fakeShopify($this->order());
+        $d = app(DisputeProcessor::class)->process($shop, '789', true);
+        $this->assertSame('QUEUED', EmailLog::sole()->status);
+        $this->fakeShopify($this->order('DELIVERED'));
+        app()->call([new SendDisputeCustomerEmail($d->automationDeliveries()->sole()->id), 'handle']);
+        Mail::assertNothingSent();
+        $this->assertSame('CANCELLED', EmailLog::sole()->status);
+        $this->assertStringContainsString('shipment', $d->fresh()->review_reason);
+    }
+
+    public function test_local_demo_is_read_only_and_impossible_in_production(): void
+    {
+        $this->app->instance('env', 'local');
+        config(['chargeguard.demo_mode' => true]);
+        $this->seed(DemoDataSeeder::class);
+        $this->get('/demo')->assertOk()->assertSee('Local read-only demo');
+        $this->postJson('/demo/settings', [])->assertStatus(405);
+        $this->app->instance('env', 'production');
+        $this->get('/demo')->assertNotFound();
     }
 }

@@ -41,7 +41,9 @@ class ShopifyAppService
             }
             if ($result->accessToken) {
                 $shop->refresh();
-                if (! $shop->active()) { throw new ShopifyApiException(false, 'The app has been uninstalled.'); }
+                if (! $shop->active()) {
+                    throw new ShopifyApiException(false, 'The app has been uninstalled.');
+                }
                 $shop->update(['access_token' => (array) $result->accessToken]);
             }
 

@@ -8,6 +8,8 @@ V1 does not support external gateways, submit evidence, accept disputes, contact
 
 ## Stack and requirements
 
+Implementation inventory, verification results, and the requested delivery checklist: [DELIVERY.md](docs/DELIVERY.md).
+
 - Laravel **10.50.3**, retained on 10.x; **PHP 8.2+**.
 - MySQL, Laravel database queues, Scheduler, Mail with SMTP.
 - Official **shopify/shopify-app-php v1.0.2**, with firebase/php-jwt v7.1.0 transitively.

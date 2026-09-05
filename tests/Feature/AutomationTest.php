@@ -37,13 +37,14 @@ class AutomationTest extends TestCase
             }
         }
 
-return $cases;
+        return $cases;
     }
 
     #[DataProvider('matrix')]
     public function test_all_twenty_combinations_queue_correct_template(string $reason, string $state): void
     {
         Queue::fake();
+        Mail::fake();
         $shop = $this->shop();
         $order = $this->order($state === 'TRACKING_ADDED' ? 'CONFIRMED' : $state);
         if ($state === 'UNFULFILLED') {
@@ -57,6 +58,9 @@ return $cases;
         $this->assertSame($reason, $delivery->template->dispute_reason);
         $this->assertSame($state, $delivery->template->shipping_state);
         Queue::assertPushed(SendDisputeCustomerEmail::class, 1);
+        app()->call([new SendDisputeCustomerEmail($delivery->id), 'handle']);
+        Mail::assertSent(DisputeCustomerMail::class, fn ($mail) => $mail->hasTo('actual-customer@example.com'));
+        $this->assertSame('SENT', $delivery->fresh()->status);
     }
 
     public function test_template_seeding_is_idempotent_and_preserves_edits(): void
@@ -151,7 +155,7 @@ return $cases;
         $job = new SendDisputeCustomerEmail($d->automationDeliveries()->sole()->id);
         app()->call([$job, 'handle']);
         app()->call([$job, 'handle']);
-        $this->assertSame('UNKNOWN',$d->automationDeliveries()->sole()->status);
-        $this->assertStringNotContainsString('Sensitive',EmailLog::sole()->error_message);
+        $this->assertSame('UNKNOWN', $d->automationDeliveries()->sole()->status);
+        $this->assertStringNotContainsString('Sensitive', EmailLog::sole()->error_message);
     }
 }

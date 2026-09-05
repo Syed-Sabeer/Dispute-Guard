@@ -105,11 +105,12 @@ class ShopifyApiBillingTest extends TestCase
             }
         };
         $this->app->instance(ShopifyAppService::class, $service);
-        $this->merchant($shop)->get('/onboarding')->assertOk()->assertDontSee('issued-offline-token');
+        $this->merchant($shop)->get('/dashboard')->assertRedirect('/onboarding')->assertDontSee('issued-offline-token');
+        $this->get('/onboarding')->assertOk();
         $installed = Shop::where('shop_domain', $domain)->sole();
         $this->assertSame(20, $installed->emailTemplates()->count());
         $this->assertFalse($installed->settings->auto_email_enabled);
         $this->assertSame('issued-offline-token', $installed->access_token['token']);
-        $this->assertSame('offline',$installed->access_token['accessMode']);
+        $this->assertSame('offline', $installed->access_token['accessMode']);
     }
 }

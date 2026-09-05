@@ -11,6 +11,7 @@ use App\Models\EmailLog;
 use App\Services\Disputes\AutomationResolver;
 use App\Services\Email\EmailComposer;
 use App\Services\Email\Recipient;
+use App\Services\Orders\OrderShippingStateResolver;
 use App\Services\Shopify\ShopifyOrderService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -28,7 +29,9 @@ class SendDisputeCustomerEmail extends QueuedJob
         $shop = $delivery->shop;
         $dispute = $delivery->dispute;
         if ($dispute->reason !== $delivery->dispute_reason || $dispute->shipping_state !== $delivery->shipping_state) {
-            $this->cancel($delivery, 'Dispute or shipment changed while queued; manual review required.'); return;
+            $this->cancel($delivery, 'Dispute or shipment changed while queued; manual review required.');
+
+            return;
         }
         $template = $resolver->template($shop, $delivery->dispute_reason, $delivery->shipping_state);
         $blocked = $resolver->blocked($shop, $dispute, $template);
@@ -49,9 +52,11 @@ class SendDisputeCustomerEmail extends QueuedJob
             return;
         }
         $email = $order['email'] ?? null;
-        $latestShipping = app(\App\Services\Orders\OrderShippingStateResolver::class)->inspect($order ?? []);
+        $latestShipping = app(OrderShippingStateResolver::class)->inspect($order ?? []);
         if ($latestShipping['state']->value !== $delivery->shipping_state) {
-            $this->cancel($delivery, 'Current shipment no longer matches the queued template; manual review required.'); return;
+            $this->cancel($delivery, 'Current shipment no longer matches the queued template; manual review required.');
+
+            return;
         }
         if (! Recipient::valid($email) || ! hash_equals((string) $delivery->recipient_hash, Recipient::hash($email))) {
             $this->cancel($delivery, 'Customer recipient is unavailable or changed; manual review required.');
@@ -60,7 +65,7 @@ class SendDisputeCustomerEmail extends QueuedJob
         }
         $variables = $composer->variables($shop, $dispute, $order);
         $tracking = $latestShipping['tracking'][0] ?? [];
-        $variables = array_replace($variables, ['carrier'=>$tracking['company'] ?? '', 'tracking_number'=>$tracking['number'] ?? '', 'tracking_url'=>$tracking['url'] ?? '', 'raw_shipment_status'=>$latestShipping['raw']]);
+        $variables = array_replace($variables, ['carrier' => $tracking['company'] ?? '', 'tracking_number' => $tracking['number'] ?? '', 'tracking_url' => $tracking['url'] ?? '', 'raw_shipment_status' => $latestShipping['raw']]);
         $message = $composer->compose($shop, $template, $variables);
         $claimed = DB::transaction(function () use ($delivery, $shop, $dispute, $template, $email, $message) {
             $shop->refresh();
@@ -74,7 +79,7 @@ class SendDisputeCustomerEmail extends QueuedJob
             if (! $claimed) {
                 return false;
             }
-            EmailLog::create(['shop_id' => $shop->id, 'dispute_id' => $dispute->id, 'email_template_id' => $template->id, 'automation_delivery_id' => $delivery->id,
+            EmailLog::updateOrCreate(['automation_delivery_id' => $delivery->id], ['shop_id' => $shop->id, 'dispute_id' => $dispute->id, 'email_template_id' => $template->id,
                 'type' => 'automatic', 'recipient_masked' => Recipient::mask($email), 'recipient_hash' => Recipient::hash($email),
                 'subject' => $message['subject'], 'rendered_body' => $message['body'], 'shipping_state' => $delivery->shipping_state, 'dispute_reason' => $delivery->dispute_reason, 'status' => 'SENDING']);
 
@@ -95,7 +100,9 @@ class SendDisputeCustomerEmail extends QueuedJob
             Mail::to($email)->send($message['mailable']);
             DB::transaction(function () use ($delivery, $dispute) {
                 $dispute = Dispute::whereKey($dispute->id)->lockForUpdate()->firstOrFail();
-                if ($dispute->redacted_at) { return; }
+                if ($dispute->redacted_at) {
+                    return;
+                }
                 $delivery->update(['status' => 'SENT', 'sent_at' => now()]);
                 $delivery->emailLog()->update(['status' => 'SENT', 'sent_at' => now()]);
                 $dispute->update(['email_sent' => true, 'email_sent_at' => now(), 'automation_status' => 'EMAIL_SENT', 'review_reason' => null]);
@@ -111,8 +118,10 @@ class SendDisputeCustomerEmail extends QueuedJob
     private function cancel(AutomationDelivery $delivery, string $reason, bool $claimed = false): void
     {
         DB::transaction(function () use ($delivery, $reason, $claimed) {
-            $changed = AutomationDelivery::whereKey($delivery->id)->where('status', $claimed ? 'SENDING' : 'QUEUED')->update(['status'=>'CANCELLED','failure_reason'=>$reason]);
-            if (! $changed) { return; }
+            $changed = AutomationDelivery::whereKey($delivery->id)->where('status', $claimed ? 'SENDING' : 'QUEUED')->update(['status' => 'CANCELLED', 'failure_reason' => $reason]);
+            if (! $changed) {
+                return;
+            }
             $delivery->emailLog()->update(['status' => 'CANCELLED', 'error_message' => $reason, 'rendered_body' => null]);
             $delivery->dispute->update(['automation_status' => 'MANUAL_REVIEW', 'review_reason' => $reason]);
         });

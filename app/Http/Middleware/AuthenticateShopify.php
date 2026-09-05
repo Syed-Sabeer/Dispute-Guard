@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Exceptions\ShopifyApiException;
 use App\Models\Shop;
 use App\Services\CurrentShop;
 use App\Services\Email\DefaultEmailTemplateFactory;
@@ -28,17 +29,21 @@ class AuthenticateShopify
         $claims = $result->idToken->claims;
         abort_unless(($claims['dest'] ?? '') === 'https://'.$domain && ($claims['iss'] ?? '') === 'https://'.$domain.'/admin', 401);
         $shop = Shop::firstOrCreate(['shop_domain' => $domain], ['installed_at' => now()]);
+        $firstOpen = $shop->wasRecentlyCreated || ! $shop->active();
         $response = Cache::lock('shopify-token-'.$shop->id, 25)->block(3, function () use ($shop, $result) {
             $shop->refresh();
             $uninstalledAt = (string) $shop->uninstalled_at;
             $token = $shop->access_token;
-            try { $tokenResult = $token && $shop->active()
-                ? $this->app->sdk()->refreshTokenExchangedAccessToken($token, httpClient: $this->app->http())
-                : $this->app->sdk()->exchangeUsingTokenExchange('offline', $result->idToken, $result->invalidTokenResponse, httpClient: $this->app->http());
+            try {
+                $tokenResult = $token && $shop->active()
+                    ? $this->app->sdk()->refreshTokenExchangedAccessToken($token, httpClient: $this->app->http())
+                    : $this->app->sdk()->exchangeUsingTokenExchange('offline', $result->idToken, $result->invalidTokenResponse, httpClient: $this->app->http());
                 if (! $tokenResult->ok && $token && $tokenResult->response->status === 401) {
                     $tokenResult = $this->app->sdk()->exchangeUsingTokenExchange('offline', $result->idToken, $result->invalidTokenResponse, httpClient: $this->app->http());
                 }
-            } catch (\Throwable) { throw new \App\Exceptions\ShopifyApiException(true); }
+            } catch (\Throwable) {
+                throw new ShopifyApiException(true);
+            }
             if (! $tokenResult->ok) {
                 return ShopifyRequestVerifier::response($tokenResult);
             }
@@ -59,6 +64,11 @@ class AuthenticateShopify
             app(ShopifyShopService::class)->sync($shop);
         }
         $this->current->set($shop);
+        if ($firstOpen && $request->path() === 'dashboard') {
+            return ShopifyRequestVerifier::response($this->app->sdk()->appHomeRedirect(
+                ShopifyRequestVerifier::request($request), '/onboarding', $shop->handle()
+            ));
+        }
         $request->attributes->set('shopify_verified', $result);
         $response = $next($request);
         foreach ((array) $result->response->headers as $key => $value) {

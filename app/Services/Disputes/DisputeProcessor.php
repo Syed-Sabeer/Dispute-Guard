@@ -8,6 +8,7 @@ use App\Exceptions\ShopifyApiException;
 use App\Jobs\SendDisputeCustomerEmail;
 use App\Models\AutomationDelivery;
 use App\Models\Dispute;
+use App\Models\EmailLog;
 use App\Models\Shop;
 use App\Services\Email\Recipient;
 use App\Services\Orders\OrderShippingStateResolver;
@@ -75,7 +76,7 @@ class DisputeProcessor
             if (! $blocked && ! Recipient::valid($email)) {
                 $blocked = 'Customer email unavailable; manual review required.';
             }
-            DB::transaction(function () use ($shop, $record, $template, $blocked) {
+            DB::transaction(function () use ($shop, $record, $template, $blocked, $email) {
                 $locked = Dispute::whereKey($record->id)->lockForUpdate()->firstOrFail();
                 if ($locked->initial_processed_at || $locked->redacted_at) {
                     return;
@@ -89,6 +90,12 @@ class DisputeProcessor
                     'dispute_reason' => $locked->reason, 'recipient_hash' => $locked->customer_email_hash,
                 ]);
                 if ($delivery->wasRecentlyCreated) {
+                    EmailLog::create([
+                        'shop_id' => $shop->id, 'dispute_id' => $locked->id, 'email_template_id' => $template->id,
+                        'automation_delivery_id' => $delivery->id, 'type' => 'automatic', 'status' => 'QUEUED',
+                        'recipient_hash' => $locked->customer_email_hash, 'recipient_masked' => Recipient::mask($email),
+                        'shipping_state' => $locked->shipping_state, 'dispute_reason' => $locked->reason,
+                    ]);
                     SendDisputeCustomerEmail::dispatch($delivery->id)->onConnection('database');
                 }
             });
