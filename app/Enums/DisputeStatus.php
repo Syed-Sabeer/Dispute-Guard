@@ -13,5 +13,8 @@ enum DisputeStatus: string
     case ACCEPTED = 'ACCEPTED';
     case PREVENTED = 'PREVENTED';
 
-    public static function open(): array { return [self::NEEDS_RESPONSE->value, self::UNDER_REVIEW->value]; }
+    public static function open(): array
+    {
+        return [self::NEEDS_RESPONSE->value, self::UNDER_REVIEW->value];
+    }
 }

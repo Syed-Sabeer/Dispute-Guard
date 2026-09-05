@@ -1,8 +1,17 @@
 'use strict';
+if (document.body.hasAttribute('data-local-demo')) {
+    document.querySelectorAll('[href^="/"]').forEach(link => {
+        const path = link.getAttribute('href');
+        if (!path.startsWith('/demo')) link.setAttribute('href', '/demo' + path);
+    });
+    document.querySelectorAll('form[data-api-form] button').forEach(button => button.disabled = true);
+    document.querySelectorAll('form[method="get"]').forEach(form => form.action = '/demo/disputes');
+}
 document.addEventListener('submit', async (event) => {
     const form = event.target;
     if (!form.matches('[data-api-form]')) return;
     event.preventDefault();
+    if (document.body.hasAttribute('data-local-demo')) return;
     if (!form.reportValidity()) return;
     const submitter = event.submitter;
     if (submitter?.dataset.confirm && !window.confirm(submitter.dataset.confirm)) return;

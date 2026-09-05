@@ -11,5 +11,8 @@ enum DisputeReason: string
     case FRAUDULENT = 'FRAUDULENT';
     case CREDIT_NOT_PROCESSED = 'CREDIT_NOT_PROCESSED';
 
-    public function label(): string { return ucwords(strtolower(str_replace('_', ' ', $this->value))); }
+    public function label(): string
+    {
+        return ucwords(strtolower(str_replace('_', ' ', $this->value)));
+    }
 }

@@ -2,6 +2,12 @@
 
 namespace App\Providers;
 
+use App\Services\Billing\BillingServiceInterface;
+use App\Services\Billing\ShopifyAppPricingService;
+use App\Services\CurrentShop;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -11,8 +17,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->scoped(\App\Services\CurrentShop::class);
-        $this->app->bind(\App\Services\Billing\BillingServiceInterface::class, \App\Services\Billing\ShopifyAppPricingService::class);
+        $this->app->scoped(CurrentShop::class);
+        $this->app->bind(BillingServiceInterface::class, ShopifyAppPricingService::class);
     }
 
     /**
@@ -20,8 +26,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        if ($this->app->environment('production')) { \Illuminate\Support\Facades\URL::forceScheme('https'); }
-        \Illuminate\Support\Facades\RateLimiter::for('merchant', fn () => \Illuminate\Cache\RateLimiting\Limit::perMinute(90)->by(app(\App\Services\CurrentShop::class)->get()->id));
-        \Illuminate\Support\Facades\RateLimiter::for('test-mail', fn () => \Illuminate\Cache\RateLimiting\Limit::perMinute(5)->by(app(\App\Services\CurrentShop::class)->get()->id));
+        if ($this->app->environment('production')) {
+            URL::forceScheme('https');
+        }
+        RateLimiter::for('merchant', fn () => Limit::perMinute(90)->by(app(CurrentShop::class)->get()->id));
+        RateLimiter::for('test-mail', fn () => Limit::perMinute(5)->by(app(CurrentShop::class)->get()->id));
     }
 }

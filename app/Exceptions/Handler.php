@@ -23,6 +23,11 @@ class Handler extends ExceptionHandler
      */
     public function register(): void
     {
+        $this->renderable(function (ShopifyApiException $e, $request) {
+            return $request->expectsJson()
+                ? response()->json(['message' => $e->getMessage()], 503)
+                : response()->view('errors.shopify', ['message' => $e->getMessage()], 503);
+        });
         $this->reportable(function (Throwable $e) {
             //
         });

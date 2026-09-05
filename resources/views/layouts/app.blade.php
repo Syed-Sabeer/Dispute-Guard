@@ -4,7 +4,9 @@
     <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="shopify-api-key" content="{{ config('shopify.api_key') }}">
     <title>@yield('title', config('chargeguard.name'))</title>
+    @unless(request()->attributes->get('local_demo'))
     <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js" data-api-key="{{ config('shopify.api_key') }}"></script>
+    @endunless
     <script src="https://cdn.shopify.com/shopifycloud/polaris.js"></script>
     <script src="/js/chargeguard.js" defer></script>
     <style>
@@ -23,11 +25,17 @@
         s-section{display:block;margin-bottom:16px} code{overflow-wrap:anywhere}
     </style>
 </head>
-<body>
+<body @if(request()->attributes->get('local_demo')) data-local-demo @endif>
+    @if(request()->attributes->get('local_demo'))
+    <s-banner tone="warning" heading="Local read-only demo">Sample data only. Open the installed app in Shopify to edit templates or send test emails.</s-banner>
+    <nav class="actions"><a href="/demo/dashboard">Dashboard</a><a href="/demo/disputes">Disputes</a><a href="/demo/templates">Templates</a><a href="/demo/test-automation">Test Automation</a><a href="/demo/settings">Settings</a></nav>
+    @endif
+    @unless(request()->attributes->get('local_demo'))
     <s-app-nav>
         <s-link href="/dashboard" rel="home">Home</s-link><s-link href="/dashboard">Dashboard</s-link><s-link href="/disputes">Disputes</s-link><s-link href="/templates">Email Templates</s-link>
         <s-link href="/test-automation">Test Automation</s-link><s-link href="/email-logs">Email Logs</s-link><s-link href="/settings">Settings</s-link><s-link href="/billing">Billing</s-link>
     </s-app-nav>
+    @endunless
     <s-page heading="@yield('title', config('chargeguard.name'))">
         @if(config('chargeguard.test_mode') || $shop->settings?->test_mode)
             <s-banner tone="warning" heading="TEST MODE">Production customer emails are blocked. Test emails are labelled and logged separately.@if(app()->environment('production')) Production is running with test mode enabled.@endif</s-banner>

@@ -13,6 +13,13 @@ enum OrderShippingState: string
     case DELIVERED = 'DELIVERED';
     case UNKNOWN = 'UNKNOWN';
 
-    public static function automatic(): array { return array_filter(self::cases(), fn ($state) => $state !== self::UNKNOWN); }
-    public function label(): string { return ucwords(strtolower(str_replace('_', ' ', $this->value))); }
+    public static function automatic(): array
+    {
+        return array_filter(self::cases(), fn ($state) => $state !== self::UNKNOWN);
+    }
+
+    public function label(): string
+    {
+        return ucwords(strtolower(str_replace('_', ' ', $this->value)));
+    }
 }

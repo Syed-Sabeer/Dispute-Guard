@@ -1,0 +1,1 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Shopify connection</title></head><body><h1>Shopify information is unavailable</h1><p>{{ $message }}</p><p>Please reopen the app from Shopify Admin or try again shortly.</p></body></html>
