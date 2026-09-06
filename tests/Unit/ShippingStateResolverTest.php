@@ -43,6 +43,35 @@ class ShippingStateResolverTest extends TestCase
         $this->assertSame(OrderShippingState::TRACKING_ADDED, $resolver->resolve($order));
     }
 
+    public function test_shopify_fulfilled_with_tracking_but_no_carrier_events_is_tracking_added(): void
+    {
+        $order = [
+            'displayFulfillmentStatus' => 'FULFILLED',
+            'fulfillments' => [[
+                'status' => 'SUCCESS',
+                'displayStatus' => 'FULFILLED',
+                'trackingInfo' => [['company' => 'Other', 'number' => 'r555', 'url' => null]],
+                'events' => ['nodes' => [], 'pageInfo' => ['hasNextPage' => false]],
+            ]],
+        ];
+        $result = (new OrderShippingStateResolver)->inspect($order);
+        $this->assertSame(OrderShippingState::TRACKING_ADDED, $result['state']);
+        $this->assertSame('FULFILLED', $result['raw']);
+        $this->assertSame($order['fulfillments'][0]['trackingInfo'], $result['tracking']);
+    }
+
+    public function test_carrier_events_take_precedence_over_merchant_fulfillment(): void
+    {
+        $resolver = new OrderShippingStateResolver;
+        foreach (['IN_TRANSIT', 'DELIVERED', 'FAILURE'] as $status) {
+            $order = $this->order($status);
+            $order['fulfillments'][0]['displayStatus'] = 'FULFILLED';
+            $result = $resolver->inspect($order);
+            $this->assertSame($status === 'FAILURE' ? OrderShippingState::UNKNOWN : OrderShippingState::from($status), $result['state']);
+            $this->assertSame($status, $result['raw']);
+        }
+    }
+
     public function test_mixed_partial_and_truncated_shipments_require_review(): void
     {
         $resolver = new OrderShippingStateResolver;

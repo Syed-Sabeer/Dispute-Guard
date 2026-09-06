@@ -43,6 +43,9 @@ final class OrderShippingStateResolver
             usort($events, fn ($a, $b) => strcmp($b['happenedAt'] ?? '', $a['happenedAt'] ?? ''));
             $status = $events[0]['status'] ?? $f['displayStatus'] ?? '';
             $state = match ($status) {
+                // Merchant fulfillment is not carrier movement. Tracking was
+                // validated above; retain UNKNOWN for unrecognized events.
+                'FULFILLED' => $events === [] ? State::TRACKING_ADDED : State::UNKNOWN,
                 '', 'CONFIRMED','LABEL_PURCHASED','LABEL_PRINTED' => State::TRACKING_ADDED,
                 'CARRIER_PICKED_UP','IN_TRANSIT','DELAYED' => State::IN_TRANSIT,
                 'OUT_FOR_DELIVERY','ATTEMPTED_DELIVERY' => State::OUT_FOR_DELIVERY,
