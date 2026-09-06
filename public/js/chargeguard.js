@@ -1,4 +1,30 @@
 'use strict';
+// Document navigation must retain shop context so App Bridge can refresh the
+// session token on the destination page. Never copy id_token or signed params.
+if (!document.body.hasAttribute('data-local-demo')) {
+    const current = new URL(window.location.href);
+    const context = new URLSearchParams({shop: document.body.dataset.shop, embedded: '1'});
+    if (current.searchParams.has('host')) context.set('host', current.searchParams.get('host'));
+    document.querySelectorAll('a[href], s-link[href]').forEach(link => {
+        const destination = new URL(link.getAttribute('href'), window.location.href);
+        if (destination.origin !== window.location.origin) return;
+        context.forEach((value, key) => destination.searchParams.set(key, value));
+        link.setAttribute('href', destination.pathname + destination.search + destination.hash);
+    });
+    document.querySelectorAll('form[method="get"]').forEach(form => {
+        context.forEach((value, key) => {
+            let input = form.querySelector(`input[name="${key}"]`);
+            if (!input) {
+                input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                form.append(input);
+            }
+            input.value = value;
+        });
+    });
+}
+
 if (document.body.hasAttribute('data-local-demo')) {
     document.querySelectorAll('[href^="/"]').forEach(link => {
         const path = link.getAttribute('href');

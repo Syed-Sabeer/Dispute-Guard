@@ -25,7 +25,7 @@
         s-section{display:block;margin-bottom:16px} code{overflow-wrap:anywhere}
     </style>
 </head>
-<body @if(request()->attributes->get('local_demo')) data-local-demo @endif>
+<body data-shop="{{ $shop->shop_domain }}" @if(request()->attributes->get('local_demo')) data-local-demo @endif>
     @if(request()->attributes->get('local_demo'))
     <s-banner tone="warning" heading="Local read-only demo">Sample data only. Open the installed app in Shopify to edit templates or send test emails.</s-banner>
     <nav class="actions"><a href="/demo/dashboard">Dashboard</a><a href="/demo/disputes">Disputes</a><a href="/demo/templates">Templates</a><a href="/demo/test-automation">Test Automation</a><a href="/demo/settings">Settings</a></nav>
