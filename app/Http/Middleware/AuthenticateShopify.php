@@ -14,6 +14,7 @@ use App\Services\Shopify\ShopifyShopService;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class AuthenticateShopify
 {
@@ -35,10 +36,17 @@ class AuthenticateShopify
             $uninstalledAt = (string) $shop->uninstalled_at;
             $token = $shop->access_token;
             try {
-                $tokenResult = $token && $shop->active()
+                $refreshing = $token && $shop->active();
+                $tokenResult = $refreshing
                     ? $this->app->sdk()->refreshTokenExchangedAccessToken($token, httpClient: $this->app->http())
                     : $this->app->sdk()->exchangeUsingTokenExchange('offline', $result->idToken, $result->invalidTokenResponse, httpClient: $this->app->http());
-                if (! $tokenResult->ok && $token && $tokenResult->response->status === 401) {
+                // The SDK maps some rejected refreshes to 500, not just 401.
+                // Recover once with the already verified merchant session token.
+                if (! $tokenResult->ok && $refreshing) {
+                    Log::info('Shopify token refresh requires session exchange', [
+                        'code' => $tokenResult->log->code,
+                        'shop_id' => $shop->id,
+                    ]);
                     $tokenResult = $this->app->sdk()->exchangeUsingTokenExchange('offline', $result->idToken, $result->invalidTokenResponse, httpClient: $this->app->http());
                 }
             } catch (\Throwable) {
@@ -64,7 +72,7 @@ class AuthenticateShopify
             app(ShopifyShopService::class)->sync($shop);
         }
         $this->current->set($shop);
-        if ($firstOpen && $request->path() === 'dashboard') {
+        if ($firstOpen && in_array($request->path(), ['/', 'dashboard'], true)) {
             return ShopifyRequestVerifier::response($this->app->sdk()->appHomeRedirect(
                 ShopifyRequestVerifier::request($request), '/onboarding', $shop->handle()
             ));

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ShopifyAppController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -13,10 +14,4 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::get('/', function () {
-    if (request()->has('shop') || request()->has('id_token')) {
-        return redirect('/dashboard?'.http_build_query(request()->only(['shop', 'host', 'embedded'])));
-    }
-
-    return view('landing');
-});
+Route::get('/', [ShopifyAppController::class, 'home']);

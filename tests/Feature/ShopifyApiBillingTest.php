@@ -87,7 +87,57 @@ class ShopifyApiBillingTest extends TestCase
         $this->assertFalse(app(ShopifyAppPricingService::class)->entitled($shop));
     }
 
-    public function test_token_exchange_initializes_shop_and_default_templates(): void
+    public static function entryPaths(): array
+    {
+        return [['/dashboard'], ['/']];
+    }
+
+    public static function refreshRecovery(): array
+    {
+        return [[true], [false]];
+    }
+
+    #[DataProvider('refreshRecovery')]
+    public function test_failed_refresh_exchanges_verified_session_once(bool $exchangeSucceeds): void
+    {
+        $shop = $this->shop();
+        $savedToken = array_merge($shop->access_token, [
+            'expires' => now()->subMinute()->toIso8601String(),
+            'refreshToken' => 'stale-refresh-token',
+            'refreshTokenExpires' => now()->addDay()->toIso8601String(),
+        ]);
+        $shop->update(['access_token' => $savedToken]);
+        $mock = new MockHandler([
+            new Response(400, [], json_encode(['error' => 'invalid_request'])),
+            $exchangeSucceeds
+                ? new Response(200, [], json_encode(['access_token' => 'replacement-token', 'scope' => 'read_orders,read_shopify_payments_disputes', 'expires_in' => 3600, 'refresh_token' => 'replacement-refresh', 'refresh_token_expires_in' => 7776000]))
+                : new Response(400, [], json_encode(['error' => 'invalid_client'])),
+        ]);
+        $client = new Client(['handler' => HandlerStack::create($mock)]);
+        $this->app->instance(ShopifyAppService::class, new class($client) extends ShopifyAppService
+        {
+            public function __construct(private Client $client) {}
+
+            public function http(): Client
+            {
+                return $this->client;
+            }
+        });
+
+        $response = $this->get('/?'.http_build_query(['shop' => $shop->shop_domain, 'id_token' => $this->token($shop)]));
+        $this->assertSame(0, $mock->count());
+        if ($exchangeSucceeds) {
+            $response->assertOk()->assertSee('Open disputes');
+            $this->assertSame('replacement-token', $shop->fresh()->access_token['token']);
+        } else {
+            $response->assertStatus(500)->assertDontSee('Open disputes');
+            $this->assertSame($savedToken, $shop->fresh()->access_token);
+        }
+        $response->assertDontSee('stale-refresh-token')->assertDontSee('replacement-token');
+    }
+
+    #[DataProvider('entryPaths')]
+    public function test_token_exchange_initializes_shop_and_default_templates(string $path): void
     {
         $domain = 'new-install.myshopify.com';
         $shop = new Shop(['shop_domain' => $domain]);
@@ -105,7 +155,7 @@ class ShopifyApiBillingTest extends TestCase
             }
         };
         $this->app->instance(ShopifyAppService::class, $service);
-        $this->merchant($shop)->get('/dashboard')->assertRedirect('/onboarding')->assertDontSee('issued-offline-token');
+        $this->merchant($shop)->get($path)->assertRedirect('/onboarding')->assertDontSee('issued-offline-token');
         $this->get('/onboarding')->assertOk();
         $installed = Shop::where('shop_domain', $domain)->sole();
         $this->assertSame(20, $installed->emailTemplates()->count());
