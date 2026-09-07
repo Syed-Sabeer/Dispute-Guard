@@ -7,6 +7,7 @@ namespace App\Http\Middleware;
 use App\Exceptions\ShopifyApiException;
 use App\Models\Shop;
 use App\Services\CurrentShop;
+use App\Services\DeploymentMode;
 use App\Services\Email\DefaultEmailTemplateFactory;
 use App\Services\Shopify\ShopifyAppService;
 use App\Services\Shopify\ShopifyRequestVerifier;
@@ -29,6 +30,7 @@ class AuthenticateShopify
         $domain = ShopifyRequestVerifier::domain($result->shop.'.myshopify.com');
         $claims = $result->idToken->claims;
         abort_unless(($claims['dest'] ?? '') === 'https://'.$domain && ($claims['iss'] ?? '') === 'https://'.$domain.'/admin', 401);
+        abort_unless(DeploymentMode::permits($domain), 403, 'This app is currently available to invited stores only.');
         $shop = Shop::firstOrCreate(['shop_domain' => $domain], ['installed_at' => now()]);
         $firstOpen = $shop->wasRecentlyCreated || ! $shop->active();
         $response = Cache::lock('shopify-token-'.$shop->id, 25)->block(3, function () use ($shop, $result) {

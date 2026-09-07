@@ -3,7 +3,11 @@
 declare(strict_types=1);
 
 return [
-    'name' => env('CHARGEGUARD_NAME', 'ChargeGuard'),
+    'name' => env('CHARGEGUARD_NAME') && env('CHARGEGUARD_NAME') !== 'ChargeGuard' ? env('CHARGEGUARD_NAME') : 'Dispute Guard',
+    'test_tools' => env('DISPUTEGUARD_ENABLE_TEST_TOOLS'),
+    'billing_enabled' => env('BILLING_ENABLED', true),
+    'prelaunch' => env('DISPUTEGUARD_PRELAUNCH', false),
+    'prelaunch_shops' => array_values(array_filter(array_map('trim', explode(',', env('DISPUTEGUARD_PRELAUNCH_SHOPS', ''))))),
     'test_mode' => env('CHARGEGUARD_TEST_MODE', true),
     'demo_mode' => env('CHARGEGUARD_DEMO_MODE', false),
     'retention_days' => (int) env('CHARGEGUARD_RETENTION_DAYS', 90),

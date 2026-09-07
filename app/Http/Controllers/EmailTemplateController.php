@@ -49,6 +49,9 @@ class EmailTemplateController extends MerchantController
     {
         $this->owned($template);
         $variables = ['customer_name' => 'Sample customer', 'order_number' => '#TEST-1001', 'order_amount' => '49.00', 'currency' => 'USD', 'store_name' => $this->shop()->store_name, 'support_email' => $this->shop()->settings->support_email, 'shipment_status' => $template->shipping_state, 'dispute_reason' => $template->dispute_reason];
+        if (app()->environment('production')) {
+            $variables = array_replace($variables, ['customer_name' => '[Customer name]', 'order_number' => '[Order number]', 'order_amount' => '[Order amount]', 'currency' => '[Currency]']);
+        }
 
         return response()->json(['subject' => $renderer->render($request->input('subject'), $variables, false), 'html' => $renderer->render($request->input('body'), $variables)]);
     }

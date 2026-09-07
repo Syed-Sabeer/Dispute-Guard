@@ -9,9 +9,11 @@
 </div>
 <label>Email footer<textarea name="email_footer" maxlength="2000" style="min-height:90px">{{ $settings->email_footer }}</textarea></label>
 <label><input type="checkbox" name="templates_reviewed" @checked($settings->templates_reviewed_at)>I have reviewed the automation templates.</label>
-<label><input type="checkbox" name="test_mode" @checked($settings->test_mode)>Test mode — block production automatic email</label>
+<label><input type="checkbox" name="test_mode" @checked($settings->test_mode)>Pause customer email delivery</label>
 <label><input type="checkbox" name="auto_email_enabled" @checked($settings->auto_email_enabled)>Activate automatic customer emails for new Shopify Payments disputes</label>
-<s-paragraph>Activation requires a successful test email, reviewed templates, and a verified billing plan.</s-paragraph><div class="actions"><button>Save settings</button></div>
+<s-paragraph>Enabling automation allows real customer emails for eligible new disputes. Confirm your support address, review your templates, and turn off the delivery pause when ready.@if(config('chargeguard.billing_enabled')) An active subscription is also required.@endif</s-paragraph>
+@if(config('chargeguard.test_mode'))<s-paragraph>Customer email delivery is temporarily paused by the app operator.</s-paragraph>@endif
+<div class="actions"><button>Save settings</button></div>
 </form></s-section>
 <s-section heading="Privacy"><s-link href="/privacy-requests">Customer data requests</s-link></s-section>
 @endsection

@@ -11,5 +11,5 @@
 <button data-action="/templates/{{ $template->id }}/restore" data-method="POST" data-confirm="Restore the default subject and body? Your edits will be replaced.">Restore default</button></div>
 </form></s-section>
 <s-section heading="Available variables"><p>@foreach(\App\Services\Email\TemplateRenderer::VARIABLES as $variable)<code>&#123;&#123;{{ $variable }}&#125;&#125;</code> @endforeach</p></s-section>
-<s-section heading="Safe preview"><h3 id="preview-subject">Select Preview to render sample values.</h3><div class="preview" id="preview-body"></div></s-section>
+<s-section heading="Template preview"><h3 id="preview-subject">Select Preview to review formatting. Customer and order fields are filled when an email is sent.</h3><div class="preview" id="preview-body"></div></s-section>
 @endsection

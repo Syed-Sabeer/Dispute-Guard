@@ -5,7 +5,7 @@ if (!document.body.hasAttribute('data-local-demo')) {
     const current = new URL(window.location.href);
     const context = new URLSearchParams({shop: document.body.dataset.shop, embedded: '1'});
     if (current.searchParams.has('host')) context.set('host', current.searchParams.get('host'));
-    document.querySelectorAll('a[href], s-link[href]').forEach(link => {
+    document.querySelectorAll('a[href], s-link[href], s-button[href]').forEach(link => {
         const destination = new URL(link.getAttribute('href'), window.location.href);
         if (destination.origin !== window.location.origin) return;
         context.forEach((value, key) => destination.searchParams.set(key, value));

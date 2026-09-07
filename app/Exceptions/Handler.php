@@ -3,6 +3,7 @@
 namespace App\Exceptions;
 
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class Handler extends ExceptionHandler
@@ -16,6 +17,9 @@ class Handler extends ExceptionHandler
         'current_password',
         'password',
         'password_confirmation',
+        'id_token',
+        'session',
+        'hmac',
     ];
 
     /**
@@ -29,7 +33,15 @@ class Handler extends ExceptionHandler
                 : response()->view('errors.shopify', ['message' => $e->getMessage()], 503);
         });
         $this->reportable(function (Throwable $e) {
-            //
+            // Exception messages/arguments can include SQL bindings, URLs with
+            // session tokens, SMTP credentials or customer content.
+            Log::error('Application operation failed', [
+                'exception_class' => get_class($e),
+                'file' => basename($e->getFile()),
+                'line' => $e->getLine(),
+            ]);
+
+            return false;
         });
     }
 }

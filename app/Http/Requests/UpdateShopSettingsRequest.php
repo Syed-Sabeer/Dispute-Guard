@@ -21,8 +21,8 @@ class UpdateShopSettingsRequest extends MerchantRequest
                 return;
             }
             $shop = app(CurrentShop::class)->get();
-            if (! $this->boolean('templates_reviewed') || ! $shop->emailLogs()->where('type', 'test')->where('status', 'SENT')->exists()) {
-                $v->errors()->add('auto_email_enabled', 'Review templates and successfully send a test email before activating automation.');
+            if (! $this->boolean('templates_reviewed')) {
+                $v->errors()->add('auto_email_enabled', 'Review the email templates before activating automation.');
             }
             if ($this->boolean('test_mode') || config('chargeguard.test_mode')) {
                 $v->errors()->add('auto_email_enabled', 'Turn off test mode before activating production automation.');

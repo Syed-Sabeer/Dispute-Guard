@@ -1,19 +1,44 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "7a2b14068b84ee71382d2f27b775b5ad"
-name = "ChargeGuard"
-application_url = "https://example.com"
+name = "Dispute Guard"
+# Replace this reserved placeholder with the permanent HTTPS domain before deploy.
+application_url = "https://REPLACE-WITH-PRODUCTION-DOMAIN.invalid"
 embedded = true
 
 [build]
 automatically_update_urls_on_dev = true
 
 [webhooks]
-api_version = "2026-10"
+api_version = "2026-07"
+
+[[webhooks.subscriptions]]
+topics = ["disputes/create"]
+uri = "/webhooks/shopify/disputes/create"
+
+[[webhooks.subscriptions]]
+topics = ["disputes/update"]
+uri = "/webhooks/shopify/disputes/update"
+
+[[webhooks.subscriptions]]
+topics = ["app/uninstalled"]
+uri = "/webhooks/shopify/app/uninstalled"
+
+[[webhooks.subscriptions]]
+compliance_topics = ["customers/data_request"]
+uri = "/webhooks/shopify/customers/data_request"
+
+[[webhooks.subscriptions]]
+compliance_topics = ["customers/redact"]
+uri = "/webhooks/shopify/customers/redact"
+
+[[webhooks.subscriptions]]
+compliance_topics = ["shop/redact"]
+uri = "/webhooks/shopify/shop/redact"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 scopes = "read_customers,read_orders,read_shopify_payments_disputes"
 
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = [ "https://REPLACE-WITH-PRODUCTION-DOMAIN.invalid/auth/patch-id-token" ]

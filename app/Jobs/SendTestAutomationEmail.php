@@ -6,6 +6,7 @@ namespace App\Jobs;
 
 use App\Models\EmailLog;
 use App\Models\EmailTemplate;
+use App\Services\DeploymentMode;
 use App\Services\Email\EmailComposer;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Mail;
@@ -21,7 +22,7 @@ class SendTestAutomationEmail extends QueuedJob
             return;
         }
         $shop = $log->shop;
-        if (! $shop->active()) {
+        if (! $shop->active() || ! DeploymentMode::testTools()) {
             $log->update(['status' => 'CANCELLED']);
 
             return;

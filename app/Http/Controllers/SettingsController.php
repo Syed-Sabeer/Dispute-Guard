@@ -17,7 +17,7 @@ class SettingsController extends MerchantController
     {
         $data = $request->safe()->except('templates_reviewed');
         $data['templates_reviewed_at'] = $request->boolean('templates_reviewed') ? now() : null;
-        $data['onboarded_at'] = $request->boolean('auto_email_enabled') ? now() : $this->shop()->settings->onboarded_at;
+        $data['onboarded_at'] = $request->boolean('templates_reviewed') && $request->filled('support_email') ? ($this->shop()->settings->onboarded_at ?? now()) : null;
         $this->shop()->settings->update($data);
 
         return response()->json(['message' => 'Settings saved.']);

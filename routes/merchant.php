@@ -12,6 +12,7 @@ use App\Http\Controllers\TestAutomationController;
 use App\Http\Middleware\AuthenticateShopify;
 use App\Http\Middleware\EmbeddedCsrf;
 use App\Http\Middleware\EnsureActiveSubscription;
+use App\Http\Middleware\EnsureTestToolsEnabled;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware([AuthenticateShopify::class, EmbeddedCsrf::class, 'throttle:merchant'])->group(function () {
@@ -25,8 +26,8 @@ Route::middleware([AuthenticateShopify::class, EmbeddedCsrf::class, 'throttle:me
     Route::put('/templates/{template}', [EmailTemplateController::class, 'update']);
     Route::post('/templates/{template}/restore', [EmailTemplateController::class, 'restore']);
     Route::post('/templates/{template}/preview', [EmailTemplateController::class, 'preview']);
-    Route::get('/test-automation', [TestAutomationController::class, 'index']);
-    Route::post('/test-automation/send', [TestAutomationController::class, 'send'])->middleware('throttle:test-mail');
+    Route::get('/test-automation', [TestAutomationController::class, 'index'])->middleware(EnsureTestToolsEnabled::class);
+    Route::post('/test-automation/send', [TestAutomationController::class, 'send'])->middleware([EnsureTestToolsEnabled::class, 'throttle:test-mail']);
     Route::get('/email-logs', [EmailLogController::class, 'index']);
     Route::get('/email-logs/{log}', [EmailLogController::class, 'show']);
     Route::get('/settings', [SettingsController::class, 'edit']);
@@ -34,5 +35,5 @@ Route::middleware([AuthenticateShopify::class, EmbeddedCsrf::class, 'throttle:me
     Route::get('/billing', BillingController::class);
     Route::get('/privacy-requests', [PrivacyRequestController::class, 'index']);
     Route::get('/privacy-requests/{privacyRequest}/export', [PrivacyRequestController::class, 'export']);
-    Route::post('/privacy-requests/{privacyRequest}/complete',[PrivacyRequestController::class, 'complete']);
+    Route::post('/privacy-requests/{privacyRequest}/complete', [PrivacyRequestController::class, 'complete']);
 });

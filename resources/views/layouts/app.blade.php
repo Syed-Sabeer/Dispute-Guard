@@ -33,11 +33,13 @@
     @unless(request()->attributes->get('local_demo'))
     <s-app-nav>
         <s-link href="/dashboard" rel="home">Home</s-link><s-link href="/dashboard">Dashboard</s-link><s-link href="/disputes">Disputes</s-link><s-link href="/templates">Email Templates</s-link>
-        <s-link href="/test-automation">Test Automation</s-link><s-link href="/email-logs">Email Logs</s-link><s-link href="/settings">Settings</s-link><s-link href="/billing">Billing</s-link>
+        @if(\App\Services\DeploymentMode::testTools())<s-link href="/test-automation">Test Automation</s-link>@endif
+        <s-link href="/email-logs">Email Logs</s-link><s-link href="/settings">Settings</s-link>
+        @if(config('chargeguard.billing_enabled'))<s-link href="/billing">Billing</s-link>@endif
     </s-app-nav>
     @endunless
     <s-page heading="@yield('title', config('chargeguard.name'))">
-        @if(config('chargeguard.test_mode') || $shop->settings?->test_mode)
+        @if(!app()->environment('production') && (config('chargeguard.test_mode') || $shop->settings?->test_mode))
             <s-banner tone="warning" heading="TEST MODE">Production customer emails are blocked. Test emails are labelled and logged separately.@if(app()->environment('production')) Production is running with test mode enabled.@endif</s-banner>
         @endif
         @if(!$shop->settings?->onboarded_at)
@@ -45,7 +47,7 @@
         @endif
         <div id="notice" role="status" aria-live="polite"></div>
         @yield('content')
-        <s-paragraph>Shopify Payments disputes only · {{ $shop->store_name ?: $shop->shop_domain }}</s-paragraph>
+        <s-paragraph>{{ config('chargeguard.name') }} · Shopify Payments disputes · {{ $shop->store_name ?: $shop->shop_domain }}</s-paragraph>
     </s-page>
 </body>
 </html>

@@ -10,6 +10,7 @@ class BillingController extends MerchantController
 {
     public function __invoke(BillingServiceInterface $billing)
     {
+        abort_unless(config('chargeguard.billing_enabled'), 404);
         $shop = $this->shop();
         $entitled = $billing->entitled($shop);
 

@@ -5,8 +5,8 @@
 <tr><td>Connected to Shopify</td><td><s-badge tone="success">Connected</s-badge></td></tr>
 <tr><td><s-link href="/settings">Configure support and reply-to email</s-link></td><td>{{ $settings->support_email ? 'Ready' : 'To do' }}</td></tr>
 <tr><td><s-link href="/templates">Review all 20 automation templates</s-link></td><td>{{ $settings->templates_reviewed_at ? 'Reviewed' : 'To do' }}</td></tr>
-<tr><td><s-link href="/test-automation">Send a test email</s-link></td><td>{{ $testSent ? 'Sent' : 'To do' }}</td></tr>
-<tr><td><s-link href="/billing">Choose or verify a billing plan</s-link></td><td>{{ $shop->billing_status }}</td></tr>
+@if(\App\Services\DeploymentMode::testTools())<tr><td><s-link href="/test-automation">Send an optional test email</s-link></td><td>{{ $testSent ? 'Sent' : 'Optional' }}</td></tr>@endif
+@if(config('chargeguard.billing_enabled'))<tr><td><s-link href="/billing">Choose or verify a billing plan</s-link></td><td>{{ $shop->billing_status }}</td></tr>@endif
 <tr><td><s-link href="/settings">Explicitly activate automation</s-link></td><td>{{ $settings->auto_email_enabled ? 'Enabled' : 'Disabled' }}</td></tr>
 </tbody></table></s-section>
 <s-banner>Only new disputes can trigger an automatic email. Enabling automation will not email customers for historical disputes.</s-banner>

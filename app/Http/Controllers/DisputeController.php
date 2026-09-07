@@ -13,6 +13,9 @@ class DisputeController extends MerchantController
     public function index(Request $request)
     {
         $q = $this->shop()->disputes();
+        if (app()->environment('production')) {
+            $q->where('source', 'shopify');
+        }
         foreach (['reason', 'status', 'shipping_state', 'automation_status', 'source'] as $field) {
             if ($request->filled($field)) {
                 $q->where($field, substr((string) $request->input($field), 0, 100));
@@ -31,6 +34,7 @@ class DisputeController extends MerchantController
     public function show(Dispute $dispute)
     {
         $this->owned($dispute);
+        abort_if(app()->environment('production') && $dispute->source !== 'shopify', 404);
 
         return $this->page('disputes.show', ['dispute' => $dispute->load(['emailLogs', 'automationDeliveries.template'])]);
     }
@@ -38,6 +42,7 @@ class DisputeController extends MerchantController
     public function resync(Dispute $dispute)
     {
         $this->owned($dispute);
+        abort_if(app()->environment('production') && $dispute->source !== 'shopify', 404);
         ResyncDispute::dispatch($dispute->id)->onConnection('database');
 
         return response()->json(['message' => 'Resync queued. It will not send another automatic email.']);

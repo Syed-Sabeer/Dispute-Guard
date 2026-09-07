@@ -72,7 +72,7 @@ class SendDisputeCustomerEmail extends QueuedJob
             $template->refresh();
             $lockedDispute = Dispute::whereKey($dispute->id)->lockForUpdate()->firstOrFail();
             $settings = $shop->settings()->first();
-            if (! $shop->active() || ! $settings?->auto_email_enabled || $settings->test_mode || $lockedDispute->redacted_at || ! $template->enabled) {
+            if (config('chargeguard.test_mode') || ! $shop->active() || ! $settings?->auto_email_enabled || $settings->test_mode || $lockedDispute->redacted_at || ! $template->enabled) {
                 return false;
             }
             $claimed = AutomationDelivery::whereKey($delivery->id)->where('status', 'QUEUED')->update(['status' => 'SENDING', 'claimed_at' => now()]);
@@ -92,7 +92,7 @@ class SendDisputeCustomerEmail extends QueuedJob
             $shop->refresh();
             $dispute->refresh();
             $settings = $shop->settings()->first();
-            if (! $shop->active() || $dispute->redacted_at || ! $settings?->auto_email_enabled || $settings->test_mode) {
+            if (config('chargeguard.test_mode') || ! $shop->active() || $dispute->redacted_at || ! $settings?->auto_email_enabled || $settings->test_mode) {
                 $this->cancel($delivery, 'Automation stopped before sending.', true);
 
                 return;

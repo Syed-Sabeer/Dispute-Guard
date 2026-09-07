@@ -5,17 +5,21 @@ declare(strict_types=1);
 namespace App\Services\Billing;
 
 use App\Models\Shop;
+use App\Services\DeploymentMode;
 use Illuminate\Support\Facades\Http;
 
 class ShopifyAppPricingService implements BillingServiceInterface
 {
     public function entitled(Shop $shop): bool
     {
-        if (app()->environment(['local', 'testing']) && ! config('chargeguard.billing_enforced')) {
-            return true;
-        }
         if (! $shop->active()) {
             return false;
+        }
+        if (! config('chargeguard.billing_enabled')) {
+            return DeploymentMode::privateShop($shop->shop_domain);
+        }
+        if (app()->environment(['local', 'testing']) && ! config('chargeguard.billing_enforced')) {
+            return true;
         }
         $partner = config('shopify.partner_id');
         $token = config('shopify.partner_token');

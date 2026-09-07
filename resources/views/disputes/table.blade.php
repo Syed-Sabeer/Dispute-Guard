@@ -9,6 +9,6 @@
     <td><s-link href="/disputes/{{ $dispute->id }}">View</s-link></td>
 </tr>
 @empty
-<tr><td colspan="7"><s-heading>No disputes yet</s-heading><p>Verified Shopify Payments disputes will appear here. Try a sample email on the Test Automation page while you set up.</p><s-link href="/test-automation">Test your automation</s-link></td></tr>
+<tr><td colspan="7"><s-heading>{{ request()->is('disputes') ? (request('automation_status') === 'MANUAL_REVIEW' ? 'No disputes currently require manual review.' : 'No disputes found.') : 'No disputes yet' }}</s-heading><p>New Shopify Payments disputes will appear here automatically when they are received.</p></td></tr>
 @endforelse
 </tbody></table></div>
