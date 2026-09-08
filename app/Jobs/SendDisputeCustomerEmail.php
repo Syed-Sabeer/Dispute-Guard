@@ -66,7 +66,12 @@ class SendDisputeCustomerEmail extends QueuedJob
         $variables = $composer->variables($shop, $dispute, $order);
         $tracking = $latestShipping['tracking'][0] ?? [];
         $variables = array_replace($variables, ['carrier' => $tracking['company'] ?? '', 'tracking_number' => $tracking['number'] ?? '', 'tracking_url' => $tracking['url'] ?? '', 'raw_shipment_status' => $latestShipping['raw']]);
-        $message = $composer->compose($shop, $template, $variables);
+        try {
+            $message = $composer->compose($shop, $template, $variables);
+        } catch (\App\Exceptions\EmailProviderException $e) {
+            $this->cancel($delivery, $e->getMessage());
+            return;
+        }
         $claimed = DB::transaction(function () use ($delivery, $shop, $dispute, $template, $email, $message) {
             $shop->refresh();
             $template->refresh();
@@ -97,17 +102,24 @@ class SendDisputeCustomerEmail extends QueuedJob
 
                 return;
             }
-            Mail::to($email)->send($message['mailable']);
-            DB::transaction(function () use ($delivery, $dispute) {
+            $sent = app(\App\Services\Email\MerchantSenderService::class)->guard($shop, $message['identity'], false, fn () => Mail::to($email)->send($message['mailable']));
+            $providerId = config('mail.default') === 'postmark' ? $sent?->getMessageId() : null;
+            DB::transaction(function () use ($delivery, $dispute, $providerId) {
                 $dispute = Dispute::whereKey($dispute->id)->lockForUpdate()->firstOrFail();
                 if ($dispute->redacted_at) {
                     return;
                 }
                 $delivery->update(['status' => 'SENT', 'sent_at' => now()]);
-                $delivery->emailLog()->update(['status' => 'SENT', 'sent_at' => now()]);
+                $delivery->emailLog()->update(['status' => 'SENT', 'sent_at' => now(), 'provider_message_id' => $providerId]);
                 $dispute->update(['email_sent' => true, 'email_sent_at' => now(), 'automation_status' => 'EMAIL_SENT', 'review_reason' => null]);
             });
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            if ($e instanceof \App\Exceptions\EmailProviderException && $e->category !== 'DELIVERY_OUTCOME_UNKNOWN') {
+                $delivery->update(['status' => 'FAILED', 'failure_reason' => $e->getMessage()]);
+                $delivery->emailLog()->update(['status' => 'FAILED', 'error_message' => $e->getMessage()]);
+                $dispute->update(['automation_status' => 'MANUAL_REVIEW', 'review_reason' => $e->getMessage()]);
+                return;
+            }
             // SMTP may have accepted the email even when the client reports failure. Never automatically resend.
             $delivery->update(['status' => 'UNKNOWN', 'failure_reason' => 'Delivery outcome uncertain; review SMTP provider records before any further action.']);
             $delivery->emailLog()->update(['status' => 'FAILED', 'error_message' => 'SMTP outcome uncertain. Automatic retry suppressed.']);

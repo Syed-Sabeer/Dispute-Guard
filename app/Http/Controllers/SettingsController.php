@@ -18,6 +18,9 @@ class SettingsController extends MerchantController
         $data = $request->safe()->except('templates_reviewed');
         $data['templates_reviewed_at'] = $request->boolean('templates_reviewed') ? now() : null;
         $data['onboarded_at'] = $request->boolean('templates_reviewed') && $request->filled('support_email') ? ($this->shop()->settings->onboarded_at ?? now()) : null;
+        if (config('senders.required') && ! app(\App\Services\Email\MerchantSenderService::class)->ready($this->shop())) {
+            $data['onboarded_at'] = null;
+        }
         $this->shop()->settings->update($data);
 
         return response()->json(['message' => 'Settings saved.']);

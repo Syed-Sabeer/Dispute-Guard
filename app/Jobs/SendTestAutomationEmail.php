@@ -34,7 +34,12 @@ class SendTestAutomationEmail extends QueuedJob
             return;
         }
         $input = json_decode(Crypt::decryptString($this->encryptedInput), true, flags: JSON_THROW_ON_ERROR);
-        $message = $composer->compose($shop, $template, $input, true);
+        try {
+            $message = $composer->compose($shop, $template, $input, true);
+        } catch (\App\Exceptions\EmailProviderException $e) {
+            $log->update(['status' => 'FAILED', 'error_message' => $e->getMessage()]);
+            return;
+        }
         if (! EmailLog::whereKey($log->id)->where('status', 'QUEUED')->update(['status' => 'SENDING'])) {
             return;
         }
@@ -45,8 +50,9 @@ class SendTestAutomationEmail extends QueuedJob
 
                 return;
             }
-            Mail::to($input['customer_email'])->send($message['mailable']);
-            $log->update(['status' => 'SENT', 'sent_at' => now(), 'subject' => $message['subject'], 'rendered_body' => $message['body']]);
+            $sent = app(\App\Services\Email\MerchantSenderService::class)->guard($shop, $message['identity'], true, fn () => Mail::to($input['customer_email'])->send($message['mailable']));
+            $log->update(['status' => 'SENT', 'sent_at' => now(), 'subject' => $message['subject'], 'rendered_body' => $message['body'],
+                'provider_message_id' => config('mail.default') === 'postmark' ? $sent?->getMessageId() : null]);
         } catch (\Throwable) {
             $log->update(['status' => 'FAILED', 'error_message' => 'Test email failed or delivery outcome is uncertain.']);
         }

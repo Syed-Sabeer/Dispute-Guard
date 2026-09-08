@@ -53,6 +53,7 @@ class ShopifyWebhookController extends Controller
             if ($topic === 'app/uninstalled') {
                 $shop->update(['status' => 'INACTIVE', 'uninstalled_at' => now(), 'access_token' => null, 'billing_status' => 'INACTIVE']);
                 $shop->settings()->update(['auto_email_enabled' => false, 'onboarded_at' => null]);
+                $shop->emailSender()->update(['verification_status' => 'REMOVED', 'verified_at' => null, 'dkim_verified' => false, 'return_path_verified' => false, 'ownership_verified' => false]);
                 AutomationDelivery::forShop($shop)->where('status', 'QUEUED')->update(['status' => 'CANCELLED', 'failure_reason' => 'App uninstalled.']);
                 $event->update(['status' => 'PROCESSED', 'payload' => null, 'processed_at' => now()]);
 

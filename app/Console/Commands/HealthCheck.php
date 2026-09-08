@@ -34,7 +34,7 @@ class HealthCheck extends Command
                 $tables = DB::select("SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE'");
                 $checks['Transactional InnoDB tables'] = collect($tables)->every(fn ($table) => strtoupper($table->ENGINE) === 'INNODB');
             }
-            $checks['Required tables'] = collect(['migrations', 'shops', 'shop_settings', 'disputes', 'email_templates', 'email_logs', 'automation_deliveries', 'webhook_events', 'privacy_requests', 'jobs', 'failed_jobs'])->every(fn ($table) => Schema::hasTable($table));
+            $checks['Required tables'] = collect(['migrations', 'shops', 'shop_settings', 'disputes', 'email_templates', 'email_logs', 'automation_deliveries', 'webhook_events', 'privacy_requests', 'jobs', 'failed_jobs', 'email_sending_domains', 'merchant_email_senders'])->every(fn ($table) => Schema::hasTable($table));
             $migrations = array_map(fn ($file) => basename($file, '.php'), glob(database_path('migrations/*.php')));
             $checks['Migrations applied'] = Schema::hasTable('migrations') && ! array_diff($migrations, DB::table('migrations')->pluck('migration')->all());
         } catch (\Throwable) {
@@ -55,7 +55,10 @@ class HealthCheck extends Command
                     && collect(config('chargeguard.prelaunch_shops'))->every(fn ($shop) => preg_match('/\A[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.myshopify\.com\z/D', $shop));
                 $this->line('WARN Billing disabled for prelaunch; public launch is not permitted');
             }
-            $checks['Production mailer'] = config('mail.default') === 'smtp';
+            $checks['Production Postmark mailer'] = config('mail.default') === 'postmark';
+            $checks['Postmark send token configured'] = (bool) config('services.postmark.token') && config('services.postmark.token') !== 'POSTMARK_API_TEST';
+            $checks['Postmark account token configured'] = (bool) config('services.postmark.account_token');
+            $this->line(config('senders.required') ? 'PASS Verified merchant senders required' : 'WARN App fallback sender enabled for automatic mail');
             $checks['Secure cookies'] = (bool) config('session.secure');
             $checks['Embedded cookies'] = config('session.same_site') === 'none';
         } else {

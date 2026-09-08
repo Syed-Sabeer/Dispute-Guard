@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>About — Dispute Guard</title>
+<meta name="description" content="What Dispute Guard is, what it deliberately does not do, and the principles behind its shipment-aware dispute email automation for Shopify.">
+<link rel="icon" href="assets/img/favicon.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container nav">
+    <a class="brand" href="index.html">
+      <img src="assets/img/logo.png" alt="Dispute Guard logo">
+      <span class="brand-name">Dispute Guard</span>
+    </a>
+    <nav class="nav-links" id="nav-links">
+      <a href="index.html">Home</a>
+      <a href="index.html#features">Features</a>
+      <a href="index.html#how-it-works">How it works</a>
+      <a href="index.html#pricing">Pricing</a>
+      <a href="about.html" class="active">About</a>
+      <a href="contact.html">Contact</a>
+    </nav>
+    <div class="nav-cta">
+      <a class="btn btn-primary btn-sm" href="contact.html">Get in touch</a>
+      <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false" aria-controls="nav-links"><span></span></button>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <section class="page-hero">
+    <div class="container">
+      <span class="eyebrow">About</span>
+      <h1>Built to say the right thing at the worst moment</h1>
+      <p>
+        Dispute Guard is a focused Shopify app for the part of a chargeback that merchants
+        usually handle by hand: the message to the customer. It reads the order, reads the
+        shipment, and sends the email that fits — or gets out of the way.
+      </p>
+    </div>
+  </section>
+
+  <!-- ====================================================== WHAT IT IS -->
+  <section class="section">
+    <div class="container">
+      <div class="grid grid-2" style="gap:52px;align-items:start">
+        <div>
+          <span class="eyebrow">Our approach</span>
+          <h2>A narrow tool that does one job carefully</h2>
+          <p>
+            Most dispute tooling tries to do everything: gather evidence, argue with the bank,
+            predict outcomes. Dispute Guard does not. It takes the single task that is repetitive,
+            time-sensitive and easy to get wrong — writing to the customer while the shipment is
+            in a particular state — and makes it reliable.
+          </p>
+          <p>
+            That means detecting a dispute, fetching the authoritative order from Shopify,
+            classifying where the shipment actually is, choosing the merchant's own template for
+            that exact situation, and sending exactly one email. Everything else it treats as
+            somebody else's job, on purpose.
+          </p>
+          <p style="margin-bottom:0">
+            The result is a dispute inbox that stays organised, customers who receive something
+            accurate rather than generic, and a clear record of what was sent and when.
+          </p>
+        </div>
+
+        <div class="card card-static">
+          <h3>At a glance</h3>
+          <div class="table-wrap" style="margin-bottom:0">
+            <table style="min-width:0">
+              <tbody>
+                <tr><th style="width:44%">Platform</th><td>Shopify embedded app</td></tr>
+                <tr><th>Covers</th><td>Shopify Payments disputes</td></tr>
+                <tr><th>Plan</th><td>Pro — $50 / month</td></tr>
+                <tr><th>Free trial</th><td>None</td></tr>
+                <tr><th>Extra charges</th><td>None</td></tr>
+                <tr><th>Permissions</th><td>Read orders, customers and Shopify Payments disputes</td></tr>
+                <tr><th>Emails per dispute</th><td>At most one automatic email</td></tr>
+                <tr><th>Support</th><td>disputeguardapp@gmail.com</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================================================== PRINCIPLES -->
+  <section class="section section--tint">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Principles</span>
+        <h2>The rules the app follows</h2>
+        <p>These are not marketing lines — they are the constraints the app is actually built around.</p>
+      </div>
+
+      <div class="grid grid-2">
+        <article class="card">
+          <div class="icon"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4v6c0 4.5-3.4 7.4-8 8-4.6-.6-8-3.5-8-8V7z"/><path d="M9.5 12.5l1.8 1.8 3.5-3.6"/></svg></div>
+          <h3>When in doubt, do nothing</h3>
+          <p>Unknown shipment states, mixed or partial fulfilments, unsupported dispute reasons and missing customer data all stop automation and raise a manual review instead of producing a guess.</p>
+        </article>
+
+        <article class="card">
+          <div class="icon"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+          <h3>One email, never two</h3>
+          <p>A dispute has a single initial automatic email. Duplicate webhook deliveries, later status updates and manual re-syncs are recorded but never trigger another send.</p>
+        </article>
+
+        <article class="card">
+          <div class="icon"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg></div>
+          <h3>The store's data stays the store's</h3>
+          <p>Each store's data is isolated from every other store. Access tokens are stored encrypted and never exposed to the browser, and sensitive content expires on a retention schedule.</p>
+        </article>
+
+        <article class="card">
+          <div class="icon"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13l3 3v13H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></div>
+          <h3>The recipient comes from Shopify</h3>
+          <p>Production emails always go to the customer address held on the real Shopify order. If that address has changed since the dispute was processed, the case goes to review rather than being redirected.</p>
+        </article>
+
+        <article class="card">
+          <div class="icon"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><circle cx="12" cy="16" r=".6" fill="currentColor"/></svg></div>
+          <h3>Nothing sends until you say so</h3>
+          <p>Automation is off and test mode is on when the app is installed. You review templates, send a test to yourself, and explicitly activate automation before a customer ever receives anything.</p>
+        </article>
+
+        <article class="card">
+          <div class="icon"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg></div>
+          <h3>Honest numbers</h3>
+          <p>Revenue at risk counts only disputes that are genuinely open, kept separate per currency. Test emails never inflate your sending statistics.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================== SCOPE -->
+  <section class="section">
+    <div class="container">
+      <div class="grid grid-2" style="gap:48px">
+        <div>
+          <span class="eyebrow">In scope</span>
+          <h2 style="font-size:1.5rem">What Dispute Guard does</h2>
+          <ul class="check-list">
+            <li>Detects new Shopify Payments disputes for your store</li>
+            <li>Fetches the related order, customer and fulfilment data from Shopify</li>
+            <li>Classifies shipment state from fulfilments and tracking events</li>
+            <li>Chooses your template for that reason and state</li>
+            <li>Sends one transactional customer email when eligible</li>
+            <li>Logs every email, including tests, separately</li>
+            <li>Flags uncertain cases for manual review</li>
+            <li>Shows open disputes, reviews and revenue at risk</li>
+          </ul>
+        </div>
+
+        <div>
+          <span class="eyebrow">Out of scope</span>
+          <h2 style="font-size:1.5rem">What it deliberately does not do</h2>
+          <ul>
+            <li>Submit dispute evidence to Shopify or the card network</li>
+            <li>Accept or decline a dispute on your behalf</li>
+            <li>Contact banks, card networks or acquirers</li>
+            <li>Handle disputes from payment gateways other than Shopify Payments</li>
+            <li>Send automatic follow-up sequences after the first email</li>
+            <li>Modify orders, refunds, fulfilments or any other store data</li>
+            <li>Guess a shipment state from incomplete information</li>
+          </ul>
+          <div class="notice" style="margin-top:22px">
+            <p>Dispute Guard requests <strong>read-only</strong> Shopify permissions. It cannot change anything in your store.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================== SETUP / TRUST -->
+  <section class="section section--soft">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Getting started</span>
+        <h2>Onboarding takes one careful sitting</h2>
+        <p>The app walks you through each step and will not switch automation on until they are done.</p>
+      </div>
+
+      <div class="steps" style="max-width:840px;margin:0 auto">
+        <div class="step">
+          <h3>Confirm the connection</h3>
+          <p>Install the app on your store and confirm that Dispute Guard can read your orders and Shopify Payments disputes.</p>
+        </div>
+        <div class="step">
+          <h3>Set your store details</h3>
+          <p>Store name, support contact and reply-to address, so replies from customers reach the right inbox.</p>
+        </div>
+        <div class="step">
+          <h3>Review your templates</h3>
+          <p>Read through the templates for each dispute reason and shipment state, and edit the wording to match your brand voice.</p>
+        </div>
+        <div class="step">
+          <h3>Send a test email</h3>
+          <p>Send a real message to your own address using your real templates and the real mail path, with no Shopify dispute involved.</p>
+        </div>
+        <div class="step">
+          <h3>Activate automation</h3>
+          <p>Turn off test mode and explicitly enable automation. Only then can a customer receive an automatic dispute email.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--tight">
+    <div class="container">
+      <div class="cta-band">
+        <h2>Questions about fit?</h2>
+        <p>If you are unsure whether Dispute Guard suits how your store handles chargebacks, ask us. We would rather tell you it is not a fit than sell you a subscription you do not need.</p>
+        <div class="btn-row btn-row--center">
+          <a class="btn btn-light" href="contact.html">Contact us</a>
+          <a class="btn btn-ghost" href="index.html#pricing">See pricing</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <div class="brand" style="margin-bottom:14px">
+          <img src="assets/img/logo.png" alt="Dispute Guard logo" style="width:38px;height:38px;border-radius:10px">
+          <span class="brand-name">Dispute Guard</span>
+        </div>
+        <p>Shipment-aware dispute communication for Shopify merchants. Detect the dispute, match the order, send the right email — once.</p>
+      </div>
+      <div>
+        <h4>Product</h4>
+        <ul class="footer-links">
+          <li><a href="index.html#features">Features</a></li>
+          <li><a href="index.html#how-it-works">How it works</a></li>
+          <li><a href="index.html#pricing">Pricing</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Company</h4>
+        <ul class="footer-links">
+          <li><a href="about.html">About</a></li>
+          <li><a href="contact.html">Contact</a></li>
+          <li><a href="privacy.html">Privacy policy</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Support</h4>
+        <ul class="footer-links">
+          <li><a href="mailto:disputeguardapp@gmail.com">disputeguardapp@gmail.com</a></li>
+          <li><span>Replies within 1–2 business days</span></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; <span data-year>2026</span> Dispute Guard. All rights reserved.</span>
+      <span>Not affiliated with or endorsed by Shopify Inc.</span>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/js/main.js"></script>
+</body>
+</html>

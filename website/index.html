@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dispute Guard — Shipment-aware dispute emails for Shopify</title>
+<meta name="description" content="Dispute Guard detects Shopify Payments disputes, matches the order, checks fulfilment and tracking status, and sends the right customer email automatically. $50/month.">
+<link rel="icon" href="assets/img/favicon.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container nav">
+    <a class="brand" href="index.html">
+      <img src="assets/img/logo.png" alt="Dispute Guard logo">
+      <span class="brand-name">Dispute Guard</span>
+    </a>
+    <nav class="nav-links" id="nav-links">
+      <a href="index.html" class="active">Home</a>
+      <a href="index.html#features">Features</a>
+      <a href="index.html#how-it-works">How it works</a>
+      <a href="index.html#pricing">Pricing</a>
+      <a href="about.html">About</a>
+      <a href="contact.html">Contact</a>
+    </nav>
+    <div class="nav-cta">
+      <a class="btn btn-primary btn-sm" href="contact.html">Get in touch</a>
+      <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false" aria-controls="nav-links"><span></span></button>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============================================================ HERO -->
+  <section class="hero">
+    <div class="container hero-grid">
+      <div>
+        <span class="eyebrow">Shopify Payments disputes</span>
+        <h1>Answer every dispute with the email the shipment actually justifies.</h1>
+        <p class="lead">
+          Dispute Guard watches for new Shopify Payments disputes, pulls the matching order,
+          works out exactly where the shipment is, and sends the customer email that fits that
+          situation — while anything uncertain is held back for you to review.
+        </p>
+        <div class="btn-row" style="margin-top:28px">
+          <a class="btn btn-light" href="#how-it-works">See how it works</a>
+          <a class="btn btn-ghost" href="#pricing">Pricing &amp; plan</a>
+        </div>
+        <div class="hero-meta">
+          <span>Built for Shopify Payments</span>
+          <span>One email per dispute, never duplicates</span>
+          <span>Manual review for uncertain cases</span>
+        </div>
+      </div>
+
+      <div class="mock" aria-hidden="true">
+        <div class="mock-bar">
+          <i class="mock-dot"></i><i class="mock-dot"></i><i class="mock-dot"></i>
+          <span class="mock-title">Dispute Guard · Dashboard</span>
+        </div>
+        <div class="mock-body">
+          <div class="mock-stats">
+            <div class="mock-stat"><b>7</b><span>Open disputes</span></div>
+            <div class="mock-stat"><b>2</b><span>Need review</span></div>
+            <div class="mock-stat"><b>18</b><span>Emails sent</span></div>
+          </div>
+
+          <div class="mock-row">
+            <div>
+              <strong>#1042 · Product not received</strong>
+              <small>In transit · tracking 1Z99AA10…</small>
+            </div>
+            <span class="pill pill-blue">Email sent</span>
+          </div>
+          <div class="mock-row">
+            <div>
+              <strong>#1039 · Product unacceptable</strong>
+              <small>Delivered · 4 Sep</small>
+            </div>
+            <span class="pill pill-green">Email sent</span>
+          </div>
+          <div class="mock-row">
+            <div>
+              <strong>#1036 · Fraudulent</strong>
+              <small>Mixed fulfilment data</small>
+            </div>
+            <span class="pill pill-amber">Manual review</span>
+          </div>
+          <div class="mock-row">
+            <div>
+              <strong>#1031 · Credit not processed</strong>
+              <small>Unfulfilled · refund pending</small>
+            </div>
+            <span class="pill pill-blue">Queued</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================== PROBLEM -->
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">The problem</span>
+        <h2>Disputes arrive at the worst possible moment</h2>
+        <p>
+          A chargeback notice lands, the clock starts, and someone has to open the order,
+          find the tracking number, work out whether the parcel moved, and write a reply that
+          matches reality. Multiply that by every dispute and it becomes guesswork.
+        </p>
+      </div>
+
+      <div class="grid grid-3">
+        <article class="card">
+          <div class="icon"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+          <h3>Slow, manual follow-up</h3>
+          <p>Every dispute means digging through orders and fulfilments before a single word gets written to the customer.</p>
+        </article>
+        <article class="card">
+          <div class="icon"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4v6c0 4.5-3.4 7.4-8 8-4.6-.6-8-3.5-8-8V7z"/><path d="M9.5 12.5l1.8 1.8 3.5-3.6"/></svg></div>
+          <h3>The wrong message</h3>
+          <p>Telling a customer their parcel is on the way when it was delivered — or the reverse — damages the conversation you were trying to save.</p>
+        </article>
+        <article class="card">
+          <div class="icon"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16v12H4z"/><path d="M4 7l8 6 8-6"/></svg></div>
+          <h3>Duplicate emails</h3>
+          <p>Webhooks retry, statuses update, someone re-syncs — and the customer receives the same message two or three times.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================= FEATURES -->
+  <section class="section section--tint" id="features">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">What you get</span>
+        <h2>Organised, shipment-aware dispute communication</h2>
+        <p>Everything Dispute Guard does is built around one idea: the message should match what actually happened to the order.</p>
+      </div>
+
+      <div class="grid grid-3">
+        <article class="card">
+          <div class="icon"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18v13H3z"/><path d="M3 7l9 6 9-6"/><path d="M8 21h8"/></svg></div>
+          <h3>Automated dispute emails</h3>
+          <p>The dispute reason and the shipment state together decide which email workflow runs, so the customer hears something relevant instead of a generic notice.</p>
+        </article>
+
+        <article class="card">
+          <div class="icon"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8h11v8H2z"/><path d="M13 11h4l4 3v2h-8z"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg></div>
+          <h3>Shipment status detection</h3>
+          <p>Unfulfilled, tracking added, in transit, out for delivery and delivered are each recognised from the order's fulfilment and tracking data.</p>
+        </article>
+
+        <article class="card">
+          <div class="icon"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13l3 3v13H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></div>
+          <h3>Customisable templates</h3>
+          <p>Edit the wording for every reason and shipment combination, preview it safely, send a test to yourself, and restore the default whenever you want.</p>
+        </article>
+
+        <article class="card">
+          <div class="icon"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg></div>
+          <h3>Monitoring dashboard</h3>
+          <p>Open disputes, cases waiting on manual review, email activity and revenue at risk are all visible from a single screen.</p>
+        </article>
+
+        <article class="card">
+          <div class="icon"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4v6c0 4.5-3.4 7.4-8 8-4.6-.6-8-3.5-8-8V7z"/><path d="M12 9v4"/><circle cx="12" cy="16" r=".6" fill="currentColor"/></svg></div>
+          <h3>Manual review protection</h3>
+          <p>Unknown, mixed, partial or inconsistent shipment data never triggers an automatic email. Those disputes are flagged and left to you.</p>
+        </article>
+
+        <article class="card">
+          <div class="icon"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+          <h3>No duplicate sending</h3>
+          <p>A dispute can produce at most one initial automatic email. Repeated webhooks, status updates and manual re-syncs will not send it again.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================================================== HOW IT WORKS -->
+  <section class="section" id="how-it-works">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">How it works</span>
+        <h2>From dispute notice to the right email</h2>
+        <p>Five steps run automatically in the background once you have activated automation.</p>
+      </div>
+
+      <div class="steps" style="max-width:840px;margin:0 auto">
+        <div class="step">
+          <h3>Detect the dispute</h3>
+          <p>Dispute Guard listens for Shopify Payments dispute events and records each one against your store, ignoring anything it has already seen.</p>
+        </div>
+        <div class="step">
+          <h3>Match the order</h3>
+          <p>The related order is fetched from Shopify so the reason, amount, customer and fulfilment history are read from the authoritative source rather than the notification.</p>
+        </div>
+        <div class="step">
+          <h3>Classify the shipment</h3>
+          <p>Fulfilments, tracking numbers and carrier events are read together to place the order in one of five shipment states — or to mark it unknown.</p>
+        </div>
+        <div class="step">
+          <h3>Choose the template</h3>
+          <p>The dispute reason and the shipment state select one of your templates. If the combination is disabled, or anything looks uncertain, the dispute is held for manual review instead.</p>
+        </div>
+        <div class="step">
+          <h3>Send once, and log it</h3>
+          <p>One transactional email goes to the customer address held on the Shopify order, the result is written to your email log, and the dispute is marked so nothing is sent twice.</p>
+        </div>
+      </div>
+
+      <div class="notice" style="max-width:840px;margin:34px auto 0">
+        <p><strong>Dispute Guard does not submit evidence, accept disputes or contact banks.</strong>
+        It handles the customer conversation around a dispute — organised, timely and matched to the shipment — and leaves the dispute response itself in your hands inside Shopify.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================ SHIPMENT STATES -->
+  <section class="section section--soft">
+    <div class="container">
+      <div class="grid grid-2" style="align-items:center;gap:48px">
+        <div>
+          <span class="eyebrow">Shipment awareness</span>
+          <h2>Five states it recognises — and one it refuses to guess</h2>
+          <p>
+            Shipment state is worked out conservatively. Clear signals produce a clear state;
+            anything mixed, partial or contradictory falls back to review rather than an assumption
+            about where a customer's parcel is.
+          </p>
+          <div class="chips" style="margin:22px 0">
+            <span class="chip">Unfulfilled</span>
+            <span class="chip">Tracking added</span>
+            <span class="chip">In transit</span>
+            <span class="chip">Out for delivery</span>
+            <span class="chip">Delivered</span>
+            <span class="chip chip--muted">Unknown → manual review</span>
+          </div>
+          <p class="small muted" style="margin-bottom:0">
+            Mixed states across multiple shipments, partially fulfilled orders, missing tracking and
+            unsupported carrier events are all treated as unknown on purpose.
+          </p>
+        </div>
+
+        <div>
+          <div class="card card-static">
+            <h3 style="margin-bottom:1rem">Supported dispute reasons</h3>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Reason</th><th>Typical email focus</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td><strong>Product not received</strong></td><td>Where the shipment is now and what happens next</td></tr>
+                  <tr><td><strong>Product unacceptable</strong></td><td>Resolution options once the order has arrived</td></tr>
+                  <tr><td><strong>Fraudulent</strong></td><td>Confirming the order details with the cardholder</td></tr>
+                  <tr><td><strong>Credit not processed</strong></td><td>Refund status and expected timing</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="small muted" style="margin-bottom:0">
+              Every reason and shipment combination has its own editable template, so you control
+              the tone of all of them.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================== PRICING -->
+  <section class="section" id="pricing">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Pricing</span>
+        <h2>One plan, everything included</h2>
+        <p>No usage tiers, no add-ons and no charges beyond the monthly subscription.</p>
+      </div>
+
+      <div class="pricing-wrap">
+        <div class="price-card">
+          <span class="eyebrow" style="margin-bottom:8px">Pro</span>
+          <div class="price-tag"><b>$50</b><span>/ month</span></div>
+          <p class="muted small">Billed monthly through Shopify. No free trial, no additional charges.</p>
+
+          <ul class="check-list">
+            <li>Automated dispute customer emails</li>
+            <li>Shipment-status based automation</li>
+            <li>Customisable email templates for every reason and state</li>
+            <li>Dispute monitoring dashboard and email logs</li>
+            <li>Manual review protection for uncertain cases</li>
+            <li>Duplicate-send prevention on every dispute</li>
+            <li>Test sending before you go live</li>
+            <li>Email support from the Dispute Guard team</li>
+          </ul>
+
+          <div class="btn-row">
+            <a class="btn btn-primary" href="contact.html" style="flex:1">Talk to us</a>
+          </div>
+          <p class="form-note" style="margin-bottom:0">
+            Charges are handled by Shopify billing and appear on your regular Shopify invoice.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ FAQ -->
+  <section class="section section--soft">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Questions</span>
+        <h2>Frequently asked</h2>
+      </div>
+
+      <div class="faq">
+        <details open>
+          <summary>Does Dispute Guard respond to the dispute for me?</summary>
+          <p>No. It handles the customer-facing email around a dispute. Submitting evidence, accepting a dispute or dealing with the bank stays with you inside Shopify. Version 1 deliberately requests no write or evidence permissions at all.</p>
+        </details>
+
+        <details>
+          <summary>Which payment providers are supported?</summary>
+          <p>Shopify Payments disputes only. External gateways are not covered in this version.</p>
+        </details>
+
+        <details>
+          <summary>Can it send more than one email per dispute?</summary>
+          <p>No. Each dispute can produce at most one initial automatic email. Repeat webhook deliveries, dispute status updates and manual re-syncs never start a second send.</p>
+        </details>
+
+        <details>
+          <summary>What happens if the shipment data is unclear?</summary>
+          <p>The dispute is marked for manual review and no email goes out. That covers unknown states, unsupported reasons, mixed or partial fulfilment data, and missing customer or order information.</p>
+        </details>
+
+        <details>
+          <summary>Can I change the wording of the emails?</summary>
+          <p>Yes. Every reason and shipment combination has its own template you can edit, enable or disable, preview, test-send to your own address, and reset back to the default.</p>
+        </details>
+
+        <details>
+          <summary>Can I try it before anything reaches a real customer?</summary>
+          <p>Yes. Automation is off by default and test mode is on by default when the app is installed. You can send test emails to your own address using your real templates before activating anything.</p>
+        </details>
+
+        <details>
+          <summary>What Shopify permissions does it need?</summary>
+          <p>Read access to orders, customers and Shopify Payments disputes. Customer name and email require Shopify's protected customer data approval; without it, some disputes will fall to manual review rather than being sent automatically.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ CTA -->
+  <section class="section section--tight">
+    <div class="container">
+      <div class="cta-band">
+        <h2>Ready to bring order to your disputes?</h2>
+        <p>Tell us about your store and how you handle chargebacks today. We will point you at the right setup.</p>
+        <div class="btn-row btn-row--center">
+          <a class="btn btn-light" href="contact.html">Contact the team</a>
+          <a class="btn btn-ghost" href="about.html">Learn more about the app</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <div class="brand" style="margin-bottom:14px">
+          <img src="assets/img/logo.png" alt="Dispute Guard logo" style="width:38px;height:38px;border-radius:10px">
+          <span class="brand-name">Dispute Guard</span>
+        </div>
+        <p>Shipment-aware dispute communication for Shopify merchants. Detect the dispute, match the order, send the right email — once.</p>
+      </div>
+
+      <div>
+        <h4>Product</h4>
+        <ul class="footer-links">
+          <li><a href="index.html#features">Features</a></li>
+          <li><a href="index.html#how-it-works">How it works</a></li>
+          <li><a href="index.html#pricing">Pricing</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4>Company</h4>
+        <ul class="footer-links">
+          <li><a href="about.html">About</a></li>
+          <li><a href="contact.html">Contact</a></li>
+          <li><a href="privacy.html">Privacy policy</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4>Support</h4>
+        <ul class="footer-links">
+          <li><a href="mailto:disputeguardapp@gmail.com">disputeguardapp@gmail.com</a></li>
+          <li><span>Replies within 1–2 business days</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <span>&copy; <span data-year>2026</span> Dispute Guard. All rights reserved.</span>
+      <span>Not affiliated with or endorsed by Shopify Inc.</span>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/js/main.js"></script>
+</body>
+</html>

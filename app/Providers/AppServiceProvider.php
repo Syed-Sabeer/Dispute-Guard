@@ -19,6 +19,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->scoped(CurrentShop::class);
         $this->app->bind(BillingServiceInterface::class, ShopifyAppPricingService::class);
+        $this->app->bind(\App\Services\Email\EmailProviderInterface::class, \App\Services\Email\PostmarkEmailProvider::class);
     }
 
     /**
@@ -26,6 +27,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        \Illuminate\Support\Facades\Mail::extend('postmark', fn () => new \App\Services\Email\PostmarkTransport(app(\App\Services\Email\EmailProviderInterface::class)));
+        RateLimiter::for('sender-domain', fn () => Limit::perMinute(3)->by(app(CurrentShop::class)->get()->id));
+        RateLimiter::for('sender-create', fn () => Limit::perDay(10)->by(app(CurrentShop::class)->get()->id));
         if ($this->app->environment('production')) {
             URL::forceScheme('https');
         }

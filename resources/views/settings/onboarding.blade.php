@@ -3,6 +3,8 @@
 @section('content')
 <s-section heading="Your setup checklist"><table><tbody>
 <tr><td>Connected to Shopify</td><td><s-badge tone="success">Connected</s-badge></td></tr>
+<tr><td><s-link href="/settings/email-sender">Configure sender name and email</s-link></td><td>{{ $shop->emailSender ? 'Saved' : 'To do' }}</td></tr>
+<tr><td><s-link href="/settings/email-sender">Authenticate your sending domain</s-link></td><td>{{ app(\App\Services\Email\MerchantSenderService::class)->ready($shop) ? 'Verified' : (config('senders.required') ? 'To do' : 'Optional') }}</td></tr>
 <tr><td><s-link href="/settings">Configure support and reply-to email</s-link></td><td>{{ $settings->support_email ? 'Ready' : 'To do' }}</td></tr>
 <tr><td><s-link href="/templates">Review all 20 automation templates</s-link></td><td>{{ $settings->templates_reviewed_at ? 'Reviewed' : 'To do' }}</td></tr>
 @if(\App\Services\DeploymentMode::testTools())<tr><td><s-link href="/test-automation">Send an optional test email</s-link></td><td>{{ $testSent ? 'Sent' : 'Optional' }}</td></tr>@endif

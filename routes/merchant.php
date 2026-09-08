@@ -16,6 +16,10 @@ use App\Http\Middleware\EnsureTestToolsEnabled;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware([AuthenticateShopify::class, EmbeddedCsrf::class, 'throttle:merchant'])->group(function () {
+    Route::get('/settings/email-sender', [\App\Http\Controllers\EmailSenderController::class, 'index']);
+    Route::put('/settings/email-sender', [\App\Http\Controllers\EmailSenderController::class, 'save'])->middleware(['throttle:sender-domain', 'throttle:sender-create']);
+    Route::post('/settings/email-sender/verify', [\App\Http\Controllers\EmailSenderController::class, 'verify'])->middleware('throttle:sender-domain');
+    Route::post('/settings/email-sender/disconnect', [\App\Http\Controllers\EmailSenderController::class, 'disconnect'])->middleware('throttle:sender-domain');
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
     Route::get('/onboarding', [SettingsController::class, 'onboarding']);
     Route::get('/disputes', [DisputeController::class, 'index']);

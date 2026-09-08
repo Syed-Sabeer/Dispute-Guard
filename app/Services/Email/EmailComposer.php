@@ -39,8 +39,10 @@ class EmailComposer
         if ($settings?->email_footer) {
             $body .= '<p>'.htmlspecialchars($settings->email_footer, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8').'</p>';
         }
-        $replyTo = $settings?->reply_to_email ?: $settings?->support_email;
+        $identity = app(MerchantSenderService::class)->identity($shop, $test);
+        $replyTo = $settings?->reply_to_email ?: ($settings?->support_email ?: $identity['email']);
 
-        return ['subject' => $subject, 'body' => $body, 'mailable' => new DisputeCustomerMail($subject, $body, Recipient::valid($replyTo) ? $replyTo : null)];
+        return ['subject' => $subject, 'body' => $body, 'identity' => $identity,
+            'mailable' => new DisputeCustomerMail($subject, $body, Recipient::valid($replyTo) ? $replyTo : $identity['email'], $identity['email'], $identity['name'])];
     }
 }

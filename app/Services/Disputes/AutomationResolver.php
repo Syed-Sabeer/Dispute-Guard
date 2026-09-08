@@ -57,6 +57,13 @@ class AutomationResolver
         if (! $template) {
             return 'Matching template is disabled or missing.';
         }
+        if (config('senders.required')) {
+            try {
+                app(\App\Services\Email\MerchantSenderService::class)->identity($shop);
+            } catch (\App\Exceptions\EmailProviderException $e) {
+                return $e->getMessage();
+            }
+        }
         if (! app(BillingServiceInterface::class)->entitled($shop)) {
             return 'Active subscription could not be verified.';
         }

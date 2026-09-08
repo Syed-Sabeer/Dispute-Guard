@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contact — Dispute Guard</title>
+<meta name="description" content="Contact the Dispute Guard team about setup, billing, privacy requests or support. Email disputeguardapp@gmail.com.">
+<link rel="icon" href="assets/img/favicon.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container nav">
+    <a class="brand" href="index.html">
+      <img src="assets/img/logo.png" alt="Dispute Guard logo">
+      <span class="brand-name">Dispute Guard</span>
+    </a>
+    <nav class="nav-links" id="nav-links">
+      <a href="index.html">Home</a>
+      <a href="index.html#features">Features</a>
+      <a href="index.html#how-it-works">How it works</a>
+      <a href="index.html#pricing">Pricing</a>
+      <a href="about.html">About</a>
+      <a href="contact.html" class="active">Contact</a>
+    </nav>
+    <div class="nav-cta">
+      <a class="btn btn-primary btn-sm" href="mailto:disputeguardapp@gmail.com">Email us</a>
+      <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false" aria-controls="nav-links"><span></span></button>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <section class="page-hero">
+    <div class="container">
+      <span class="eyebrow">Contact</span>
+      <h1>Talk to the Dispute Guard team</h1>
+      <p>
+        Questions about setup, templates, billing or a privacy request — write to us and a
+        person will read it. We usually reply within one to two business days.
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="grid grid-2" style="gap:44px;align-items:start">
+
+        <!-- ------------------------------------------------- form ---- -->
+        <div>
+          <h2 style="font-size:1.55rem">Send us a message</h2>
+          <p class="muted">
+            Fill this in and your own email app will open with the message ready to send to
+            <a href="mailto:disputeguardapp@gmail.com">disputeguardapp@gmail.com</a>.
+            Nothing is submitted to a third-party server from this page.
+          </p>
+
+          <form class="form-card" id="contact-form" novalidate>
+            <div class="field">
+              <label for="name">Your name <span aria-hidden="true">*</span></label>
+              <input type="text" id="name" name="name" autocomplete="name" placeholder="Jane Doe" required>
+            </div>
+
+            <div class="field">
+              <label for="email">Email address <span aria-hidden="true">*</span></label>
+              <input type="email" id="email" name="email" autocomplete="email" placeholder="you@yourstore.com" required>
+            </div>
+
+            <div class="field">
+              <label for="store">Shopify store domain</label>
+              <input type="text" id="store" name="store" placeholder="your-store.myshopify.com">
+              <p class="field-hint">Optional, but it helps us answer setup and billing questions faster.</p>
+            </div>
+
+            <div class="field">
+              <label for="topic">What is this about?</label>
+              <select id="topic" name="topic">
+                <option value="General">General question</option>
+                <option value="Setup">Installation &amp; setup</option>
+                <option value="Templates">Email templates</option>
+                <option value="Billing">Billing &amp; subscription</option>
+                <option value="Technical">Technical issue</option>
+                <option value="Privacy">Privacy or data request</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="message">Message <span aria-hidden="true">*</span></label>
+              <textarea id="message" name="message" placeholder="Tell us what you need help with…" required></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width:100%">Compose email</button>
+            <p class="form-note" id="form-status" role="status" aria-live="polite">
+              Please do not include card numbers, passwords or customer personal data in your first message.
+            </p>
+          </form>
+        </div>
+
+        <!-- --------------------------------------------- contact info -->
+        <div>
+          <h2 style="font-size:1.55rem">Other ways to reach us</h2>
+          <p class="muted">Email is the fastest route for everything below.</p>
+
+          <div class="card card-static" style="padding:12px 26px">
+            <div class="contact-item">
+              <div class="icon"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18v13H3z"/><path d="M3 7l9 6 9-6"/></svg></div>
+              <div>
+                <h3>General &amp; support</h3>
+                <p><a href="mailto:disputeguardapp@gmail.com">disputeguardapp@gmail.com</a></p>
+              </div>
+            </div>
+
+            <div class="contact-item">
+              <div class="icon"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+              <div>
+                <h3>Response time</h3>
+                <p>Within 1–2 business days, Monday to Friday.</p>
+              </div>
+            </div>
+
+            <div class="contact-item">
+              <div class="icon"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg></div>
+              <div>
+                <h3>Privacy &amp; data requests</h3>
+                <p>Email us with <strong>“Privacy request”</strong> in the subject line. See the <a href="privacy.html">privacy policy</a> for what we hold.</p>
+              </div>
+            </div>
+
+            <div class="contact-item">
+              <div class="icon"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4v6c0 4.5-3.4 7.4-8 8-4.6-.6-8-3.5-8-8V7z"/><path d="M9.5 12.5l1.8 1.8 3.5-3.6"/></svg></div>
+              <div>
+                <h3>Security reports</h3>
+                <p>Send details to the same address with <strong>“Security”</strong> in the subject. Please do not disclose publicly first.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="notice" style="margin-top:24px">
+            <p><strong>Billing runs through Shopify.</strong> Subscription changes, invoices and cancellations are handled in your Shopify admin. We can help you find the right screen, but we cannot alter Shopify's billing on your behalf.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================== SUPPORT FAQ -->
+  <section class="section section--soft">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Before you write</span>
+        <h2>Answers to the most common requests</h2>
+      </div>
+
+      <div class="faq">
+        <details open>
+          <summary>Emails are not being sent to my customers</summary>
+          <p>Check three things first: automation must be explicitly activated, merchant test mode must be off, and the subscription must be active. If all three are fine, look at the dispute in the dashboard — it may have been placed under manual review because the shipment data was unclear.</p>
+        </details>
+
+        <details>
+          <summary>A dispute is stuck in manual review</summary>
+          <p>That is intentional whenever the shipment state is unknown, the fulfilment data is mixed or partial, the dispute reason is unsupported, or customer information is missing. Handle the case yourself in Shopify; the app will not send an automatic email for it.</p>
+        </details>
+
+        <details>
+          <summary>I want to change what an email says</summary>
+          <p>Open the templates screen and edit the template for that dispute reason and shipment state. You can preview it, send a test to your own address, and restore the default at any time.</p>
+        </details>
+
+        <details>
+          <summary>How do I cancel?</summary>
+          <p>Uninstall the app or cancel the subscription from your Shopify admin. Uninstalling immediately clears access tokens and disables automation, and your store's data is removed after Shopify's shop redaction process runs.</p>
+        </details>
+
+        <details>
+          <summary>Can you send emails for disputes from another payment gateway?</summary>
+          <p>Not in this version. Dispute Guard covers Shopify Payments disputes only. If a different gateway matters to you, tell us — it helps us prioritise.</p>
+        </details>
+      </div>
+
+      <p class="text-center muted" style="margin-top:34px">
+        Still stuck? Write to
+        <a href="mailto:disputeguardapp@gmail.com">disputeguardapp@gmail.com</a>
+        with your store domain and, if relevant, the dispute reference.
+      </p>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <div class="brand" style="margin-bottom:14px">
+          <img src="assets/img/logo.png" alt="Dispute Guard logo" style="width:38px;height:38px;border-radius:10px">
+          <span class="brand-name">Dispute Guard</span>
+        </div>
+        <p>Shipment-aware dispute communication for Shopify merchants. Detect the dispute, match the order, send the right email — once.</p>
+      </div>
+      <div>
+        <h4>Product</h4>
+        <ul class="footer-links">
+          <li><a href="index.html#features">Features</a></li>
+          <li><a href="index.html#how-it-works">How it works</a></li>
+          <li><a href="index.html#pricing">Pricing</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Company</h4>
+        <ul class="footer-links">
+          <li><a href="about.html">About</a></li>
+          <li><a href="contact.html">Contact</a></li>
+          <li><a href="privacy.html">Privacy policy</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Support</h4>
+        <ul class="footer-links">
+          <li><a href="mailto:disputeguardapp@gmail.com">disputeguardapp@gmail.com</a></li>
+          <li><span>Replies within 1–2 business days</span></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; <span data-year>2026</span> Dispute Guard. All rights reserved.</span>
+      <span>Not affiliated with or endorsed by Shopify Inc.</span>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/js/main.js"></script>
+</body>
+</html>

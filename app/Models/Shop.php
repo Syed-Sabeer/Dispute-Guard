@@ -42,6 +42,11 @@ class Shop extends Model
         return $this->hasOne(ShopSetting::class);
     }
 
+    public function emailSender()
+    {
+        return $this->hasOne(MerchantEmailSender::class);
+    }
+
     public function active(): bool
     {
         return $this->status === 'ACTIVE' && $this->uninstalled_at === null;
