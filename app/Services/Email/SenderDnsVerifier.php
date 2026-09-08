@@ -17,7 +17,8 @@ class SenderDnsVerifier
                 throw new \RuntimeException;
             }
             foreach ($response->json('Answer', []) as $record) {
-                if (($record['type'] ?? null) !== ($type === 'TXT' ? 16 : 5)) {
+                if (strtolower(rtrim($record['name'] ?? '', '.')) !== strtolower(rtrim($host, '.'))
+                    || ($record['type'] ?? null) !== ($type === 'TXT' ? 16 : 5)) {
                     continue;
                 }
                 $value = $record['data'] ?? '';
@@ -34,6 +35,7 @@ class SenderDnsVerifier
         } catch (\Throwable) {
             throw new EmailProviderException('TRANSIENT_BEFORE_SEND');
         }
+
         return false;
     }
 }

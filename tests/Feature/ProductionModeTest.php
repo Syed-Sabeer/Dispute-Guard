@@ -182,6 +182,9 @@ class ProductionModeTest extends TestCase
             'session.secure' => true, 'session.same_site' => 'none', 'chargeguard.demo_mode' => false,
             'chargeguard.billing_enabled' => false, 'chargeguard.prelaunch' => true, 'chargeguard.prelaunch_shops' => ['private.myshopify.com']]);
         $this->artisan('chargeguard:health-check')->expectsOutput('WARN Billing disabled for prelaunch; public launch is not permitted')->assertExitCode(0);
+        config(['services.postmark.token' => '', 'services.postmark.account_token' => '']);
+        $this->artisan('chargeguard:health-check')->expectsOutput('FAIL Postmark send token configured')
+            ->expectsOutput('FAIL Postmark account token configured')->assertExitCode(1);
         config(['chargeguard.test_tools' => true, 'chargeguard.demo_mode' => true]);
         $this->artisan('chargeguard:health-check')->expectsOutput('FAIL Demo disabled')->expectsOutput('FAIL Test tools disabled')->assertExitCode(1);
     }

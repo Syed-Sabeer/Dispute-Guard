@@ -1,3 +1,5 @@
+**Sender-domain release:** Follow [Merchant sending domains](MERCHANT_SENDING_DOMAINS.md) for the current Postmark configuration, verified merchant From rules, migration, and release report. Earlier application-From descriptions apply only to explicitly enabled fallback.
+
 # Dispute Guard production readiness report
 
 ## A. Files changed
@@ -15,15 +17,15 @@ Dispute Guard branding replaces the legacy default, including sender display nam
 
 The dashboard shows automation state without a TEST MODE banner; global and merchant delivery pauses still prevent sending. Settings warns before activation. Onboarding completes when validated support details and reviewed templates are saved, without enabling automation or requiring test mail. Production test endpoints are 404 unless explicitly enabled; queued test mail is cancelled when disabled. Explicitly enabled test tools permit inspection of their labelled email logs.
 
-Billing implementation remains intact. Private prelaunch skips Partner lookups only for explicitly allowlisted shops. Other shops fail closed. Normal billing restores strict subscription enforcement. Existing Shopify verification, privacy, encryption, rendering sanitization, sender/Reply-To separation, deduplication, stale-state and SMTP uncertainty safeguards remain.
+Billing implementation remains intact. Private prelaunch skips Partner lookups only for explicitly allowlisted shops. Other shops fail closed. Normal billing restores strict subscription enforcement. Existing Shopify verification, privacy, encryption, rendering sanitization, sender/Reply-To separation, deduplication, stale-state and email provider uncertainty safeguards remain.
 
 Exception reporting logs class/file/line rather than potentially sensitive messages or request objects. No live customer emails were sent during this work. Local `.env` and merchant database records were not changed.
 
-## C–D. Environment variables and required values
+## Câ€“D. Environment variables and required values
 
 New: `BILLING_ENABLED`, `DISPUTEGUARD_PRELAUNCH`, `DISPUTEGUARD_PRELAUNCH_SHOPS`, `DISPUTEGUARD_ENABLE_TEST_TOOLS`. Code defaults are billing on, prelaunch off, empty allowlist, tools enabled only in local/development/testing when unset.
 
-For this private deployment use billing false, prelaunch true, an exact invited-shop allowlist, test tools false, demo false, APP_ENV production, APP_DEBUG false, permanent HTTPS APP_URL, database queue and secure SameSite=None cookies. Configure real DB/Shopify/SMTP credentials and authenticated sender. Keep the global email safety switch true during setup; set false only when ready. The full copyable configuration is in [Production deployment](PRODUCTION_DEPLOYMENT.md#configuration) and `.env.example`.
+For this private deployment use billing false, prelaunch true, an exact invited-shop allowlist, test tools false, demo false, APP_ENV production, APP_DEBUG false, permanent HTTPS APP_URL, database queue and secure SameSite=None cookies. Configure real DB/Shopify/email provider credentials and authenticated sender. Keep the global email safety switch true during setup; set false only when ready. The full copyable configuration is in [Production deployment](PRODUCTION_DEPLOYMENT.md#configuration) and `.env.example`.
 
 ## E. Database
 
@@ -33,7 +35,7 @@ No migrations or indexes added. Existing shop-domain uniqueness, tenant/dispute 
 
 Name: Dispute Guard. Embedded mode retained. Scopes: read_customers, read_orders, read_shopify_payments_disputes. Webhook version aligned with tested GraphQL 2026-07. Six explicit subscriptions: disputes/create, disputes/update, app/uninstalled, customers/data_request, customers/redact, shop/redact. Compliance topics use compliance_topics. App root and auth patch URLs use a deliberately invalid production-domain placeholder pending the real domain. Linked client ID retained. No Shopify configuration was published.
 
-## G–H. cPanel commands and cron
+## Gâ€“H. cPanel commands and cron
 
 Use the host's verified PHP 8.2+ binary:
 
@@ -54,7 +56,7 @@ Generate APP_KEY only for a new empty installation, never an update. Public stor
 * * * * * cd /home/USER/disputeguard && /path/to/php artisan queue:work database --stop-when-empty --max-time=55 --tries=1 --timeout=50 >> /dev/null 2>&1
 ```
 
-Existing per-job preparation retry limits override the worker default; no uncertain SMTP delivery is retried automatically. See the deployment guide for optional flock, runtime limits, monitoring and rollback.
+Existing per-job preparation retry limits override the worker default; no uncertain email provider delivery is retried automatically. See the deployment guide for optional flock, runtime limits, monitoring and rollback.
 
 ## I. Verification
 
@@ -64,9 +66,9 @@ Existing per-job preparation retry limits override the worker default; no uncert
 - Configuration cache, route cache and Blade compilation: pass. Temporary verification config/route caches removed afterward.
 - Composer audit: not clean; Laravel framework advisories remain (see blockers). Tests and compilation are local verification, not a cPanel deployment or authenticated production browser certification.
 
-## J–K. Remaining blockers and manual deployment work
+## Jâ€“K. Remaining blockers and manual deployment work
 
-Resolve Laravel's reported security advisories before public launch. Provide permanent domain, hosting/database, production app credentials/permissions, exact private shop allowlist and verified SMTP domain. Follow all 23 ordered steps in [Production deployment](PRODUCTION_DEPLOYMENT.md#deployment-order): upload, PHP/DB/env, install/migrate/cache, cron, HTTPS, Shopify URLs/deploy, health-check, Admin authentication, real order access, optional controlled operator email, queue/webhook/privacy checks, then disable tools. No actual cPanel/DNS/Shopify release was performed. Back up APP_KEY/database and preserve delivery claims on rollback.
+Resolve Laravel's reported security advisories before public launch. Provide permanent domain, hosting/database, production app credentials/permissions, exact private shop allowlist and verified email provider domain. Follow all 23 ordered steps in [Production deployment](PRODUCTION_DEPLOYMENT.md#deployment-order): upload, PHP/DB/env, install/migrate/cache, cron, HTTPS, Shopify URLs/deploy, health-check, Admin authentication, real order access, optional controlled operator email, queue/webhook/privacy checks, then disable tools. No actual cPanel/DNS/Shopify release was performed. Back up APP_KEY/database and preserve delivery claims on rollback.
 
 ## L. Later billing activation
 

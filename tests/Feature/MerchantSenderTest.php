@@ -12,8 +12,9 @@ use App\Services\Email\MerchantSenderService;
 use App\Services\Email\PostmarkEmailProvider;
 use App\Services\Email\SenderDnsVerifier;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -48,6 +49,7 @@ class MerchantSenderTest extends TestCase
                 return Http::response(['ErrorCode' => 0, 'MessageID' => self::MESSAGE_ID]);
             }
             $name = $request['Name'] ?? 'store-one.com';
+
             return Http::response($this->domain($name, $name === 'store-one.com' ? 81234567 : 81234568));
         }]);
     }
@@ -57,6 +59,7 @@ class MerchantSenderTest extends TestCase
         $this->fakeProvider();
         $service = app(MerchantSenderService::class);
         $service->save($shop, 'ABC Store', 'Support@Store-One.com');
+
         return $service->check($shop);
     }
 
@@ -81,7 +84,7 @@ class MerchantSenderTest extends TestCase
     public static function invalidEmails(): array
     {
         return array_map(fn ($v) => [$v], ['bad', "a@store-one.com\r\nBcc: victim@store-two.com", 'a@[127.0.0.1]', 'a@localhost', 'a@shop.local', 'a@shop.invalid', 'a@example.com', 'a@shop.test',
-            'a@gmail.com', 'a@outlook.com', 'a@yahoo.com', 'a@store.myshopify.com', 'a@éxample.com', 'a@-bad.com', 'a@store-one.com ', "a@store-one.com\0"]);
+            'a@gmail.com', 'a@outlook.com', 'a@yahoo.com', 'a@store.myshopify.com', 'a@Ã©xample.com', 'a@-bad.com', 'a@store-one.com ', "a@store-one.com\0"]);
     }
 
     #[DataProvider('invalidEmails')]
@@ -119,6 +122,8 @@ class MerchantSenderTest extends TestCase
         $shop = $this->shop();
         $this->fakeProvider();
         app(MerchantSenderService::class)->save($shop, 'Store', 'support@store-one.com');
+        Http::swap(new Factory);
+        Http::preventStrayRequests();
         Http::fake(['api.postmarkapp.com/*' => Http::response($this->domain(verified: false))]);
         $this->assertSame('PENDING', app(MerchantSenderService::class)->check($shop)->verification_status);
     }
@@ -185,6 +190,8 @@ class MerchantSenderTest extends TestCase
         $shop = $this->shop();
         $sender = $this->verified($shop);
         $sender->update(['last_checked_at' => now()->subMinutes(16)]);
+        Http::swap(new Factory);
+        Http::preventStrayRequests();
         Http::fake(['api.postmarkapp.com/*' => Http::response(['Message' => 'private-account-token customer@example.com'], 500)]);
         try {
             app(MerchantSenderService::class)->identity($shop);
@@ -217,6 +224,7 @@ class MerchantSenderTest extends TestCase
         Queue::fake();
         $this->fakeShopify($this->order());
         app(DisputeProcessor::class)->process($shop, '789', true);
+
         return [$shop, AutomationDelivery::sole()];
     }
 
@@ -257,6 +265,8 @@ class MerchantSenderTest extends TestCase
     public function test_provider_failure_never_retries_uncertain_or_rejected_delivery(int $httpStatus, string $expected): void
     {
         [$shop, $delivery] = $this->queuedDelivery();
+        Http::swap(new Factory);
+        Http::preventStrayRequests();
         Http::fake(['api.postmarkapp.com/email' => Http::response(['ErrorCode' => 300, 'Message' => 'private-server-token'], $httpStatus)]);
         $job = new SendDisputeCustomerEmail($delivery->id);
         app()->call([$job, 'handle']);
@@ -278,6 +288,38 @@ class MerchantSenderTest extends TestCase
         app(EmailComposer::class)->compose($shop, $shop->emailTemplates()->first(), []);
     }
 
+    public function test_send_timeout_is_uncertain_and_sanitized(): void
+    {
+        Http::fake(fn () => throw new ConnectionException('private-server-token'));
+        try {
+            app(PostmarkEmailProvider::class)->send([]);
+            $this->fail('Timeout accepted');
+        } catch (EmailProviderException $e) {
+            $this->assertSame('DELIVERY_OUTCOME_UNKNOWN', $e->category);
+            $this->assertNull($e->getPrevious());
+            $this->assertStringNotContainsString('private-server-token', $e->getMessage());
+        }
+    }
+
+    public function test_optional_fallback_never_uses_an_unverified_merchant_from(): void
+    {
+        $this->fakeProvider();
+        $shop = $this->shop();
+        app(MerchantSenderService::class)->save($shop, 'Store', 'support@store-one.com');
+        $this->mock(SenderDnsVerifier::class, fn ($m) => $m->shouldReceive('matches')->andReturn(false));
+        config(['senders.required' => false]);
+        $this->assertSame('notifications@disputeguard-mail.com', app(MerchantSenderService::class)->identity($shop)['email']);
+    }
+
+    public function test_disconnect_cancels_already_queued_mail(): void
+    {
+        [$shop, $delivery] = $this->queuedDelivery();
+        app(MerchantSenderService::class)->disconnect($shop);
+        app()->call([new SendDisputeCustomerEmail($delivery->id), 'handle']);
+        $this->assertSame('CANCELLED', $delivery->fresh()->status);
+        Http::assertNotSent(fn ($r) => str_ends_with($r->url(), '/email'));
+    }
+
     public function test_sender_change_between_composition_and_send_refuses_old_identity(): void
     {
         $shop = $this->shop();
@@ -291,7 +333,7 @@ class MerchantSenderTest extends TestCase
 
     public function test_sender_routes_are_authenticated_csrf_protected_and_throttled(): void
     {
-        $this->getJson('/settings/email-sender')->assertStatus(401);
+        $this->getJson('/settings/email-sender')->assertStatus(302);
         $shop = $this->shop();
         $this->merchant($shop)->post('/settings/email-sender/verify')->assertStatus(419);
         for ($i = 0; $i < 3; $i++) {

@@ -62,6 +62,7 @@ class PostmarkEmailProvider implements EmailProviderInterface
     public function verifyDomain(int $id): array
     {
         $this->request('PUT', '/domains/'.$id.'/verifyDkim');
+
         return $this->request('PUT', '/domains/'.$id.'/verifyReturnPath');
     }
 
@@ -71,6 +72,7 @@ class PostmarkEmailProvider implements EmailProviderInterface
         if (($result['ErrorCode'] ?? null) !== 0 || ! preg_match('/\A[0-9a-f-]{36}\z/i', $result['MessageID'] ?? '')) {
             throw new EmailProviderException('DELIVERY_OUTCOME_UNKNOWN');
         }
+
         return $result['MessageID'];
     }
 }

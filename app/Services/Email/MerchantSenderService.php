@@ -26,6 +26,7 @@ class MerchantSenderService
             || collect($blocked)->contains(fn ($item) => $domain === $item || str_ends_with($domain, '.'.$item))) {
             throw ValidationException::withMessages(['sender_email' => 'Use a business domain whose DNS you control. Public mailboxes and Shopify domains cannot be used. Use ASCII or punycode for international domains.']);
         }
+
         return $email;
     }
 
@@ -40,6 +41,7 @@ class MerchantSenderService
         if (! trim($name) || mb_strlen($name) > 100 || preg_match('/[\p{C}<>]/u', $name)) {
             throw ValidationException::withMessages(['sender_name' => 'Enter a sender name without control characters or markup.']);
         }
+
         return $this->locked($shop, function () use ($shop, $name, $email) {
             abort_unless($shop->fresh()->active(), 403);
             $domainName = substr(strrchr($email, '@'), 1);
@@ -61,6 +63,7 @@ class MerchantSenderService
                     $this->persistDomain($domain, $this->provider->ensureDomain($domain->domain));
                 }
             });
+
             return $sender->fresh('sendingDomain');
         });
     }
@@ -116,6 +119,7 @@ class MerchantSenderService
             $shop->settings()->update(['auto_email_enabled' => false]);
             throw $e;
         }
+
         return $sender->fresh('sendingDomain');
     }
 
@@ -140,6 +144,7 @@ class MerchantSenderService
         if (! trim($sender->sender_name) || preg_match('/[\p{C}<>]/u', $sender->sender_name)) {
             return false;
         }
+
         return substr(strrchr($email, '@'), 1) === $sender->sendingDomain->domain && (bool) $sender->sendingDomain->provider_domain_id;
     }
 
@@ -162,6 +167,7 @@ class MerchantSenderService
         }
         if ($this->configured() && $this->ready($shop)) {
             $sender = $shop->emailSender()->first();
+
             return ['email' => $sender->sender_email, 'name' => $sender->sender_name, 'revision' => $sender->revision, 'id' => $sender->id];
         }
         if (! $test && config('senders.required')) {
@@ -170,6 +176,7 @@ class MerchantSenderService
         if (! Recipient::valid(config('mail.from.address')) || preg_match('/[\r\n\x00]/', config('mail.from.name', ''))) {
             throw new EmailProviderException('CONFIGURATION');
         }
+
         return ['email' => config('mail.from.address'), 'name' => config('mail.from.name'), 'revision' => null, 'id' => null];
     }
 
@@ -179,6 +186,7 @@ class MerchantSenderService
             if (! $shop->fresh()->active() || $this->identity($shop, $test, false) !== $identity) {
                 throw new EmailProviderException('SENDER_NOT_VERIFIED');
             }
+
             return $send();
         });
     }

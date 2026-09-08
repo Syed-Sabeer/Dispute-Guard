@@ -1,3 +1,5 @@
+**Sender-domain release:** Follow [Merchant sending domains](MERCHANT_SENDING_DOMAINS.md) for the current Postmark configuration, verified merchant From rules, migration, and release report. Earlier application-From descriptions apply only to explicitly enabled fallback.
+
 # ChargeGuard V1 architecture
 
 ## Scope and boundaries
@@ -59,17 +61,17 @@ Refund records and their transaction statuses are displayed separately. A refund
 
 Immediately before sending, refresh shop/settings/dispute/template eligibility. Fetch the actual Shopify order email and require it to match the hash captured during processing. A recipient change causes manual review, not redirection.
 
-A short transaction changes a delivery from QUEUED to SENDING and creates its log. Only one worker can win this conditional claim. SMTP executes outside transactions. The successful result marks the delivery/log SENT and the dispute EMAIL_SENT. Mail uses the configured authenticated application From domain and a validated merchant Reply-To.
+A short transaction changes a delivery from QUEUED to SENDING and creates its log. Only one worker can win this conditional claim. email provider executes outside transactions. The successful result marks the delivery/log SENT and the dispute EMAIL_SENT. Mail uses the verified merchant From name/address and a validated merchant Reply-To. Application From is available only for test mail or explicitly enabled optional fallback.
 
-**SMTP cannot provide exactly-once delivery across a process crash.** If SMTP throws after the claim, the result becomes UNKNOWN/manual review; it is not automatically retried. If a worker dies after SMTP accepted the email, maintenance marks stale SENDING records uncertain after five minutes. Check provider records. Do not reset a claim or blindly retry uncertain mail. Pre-send transient Shopify failures can retry safely.
+**email provider cannot provide exactly-once delivery across a process crash.** If email provider throws after the claim, the result becomes UNKNOWN/manual review; it is not automatically retried. If a worker dies after email provider accepted the email, maintenance marks stale SENDING records uncertain after five minutes. Check provider records. Do not reset a claim or blindly retry uncertain mail. Pre-send transient Shopify failures can retry safely.
 
-Disabling automation, uninstalling, or redacting prevents subsequent sends at the final eligibility check. An email already accepted by SMTP cannot be recalled. This unavoidable boundary is distinct from queue idempotency.
+Disabling automation, uninstalling, or redacting prevents subsequent sends at the final eligibility check. An email already accepted by email provider cannot be recalled. This unavoidable boundary is distinct from queue idempotency.
 
 Templates use a whitelist of substitutions without eval, PHP execution, Blade evaluation, or arbitrary template engines. Substituted HTML values are escaped. Only p/br/strong/b/em/i/ul/ol/li survive and every attribute is removed. Tracking URLs are plain text. Stored previews are encrypted and sanitized again on display.
 
 ## Privacy, retention, and operations
 
-- customers/data_request creates a tenant-isolated, encrypted export with a READY workflow in Settings → Customer data requests. The merchant/operator verifies the requester and provides the export through a secure channel, then marks it completed. This is a real preparation workflow; the app does not automatically email exports.
+- customers/data_request creates a tenant-isolated, encrypted export with a READY workflow in Settings Ã¢â€ â€™ Customer data requests. The merchant/operator verifies the requester and provides the export through a secure channel, then marks it completed. This is a real preparation workflow; the app does not automatically email exports.
 - customers/redact matches requested order IDs and/or keyed email hash; clears tracking, order references, recipient details and previews; cancels deliveries; marks disputes redacted to prevent re-fetching. Existing exports are invalidated. Concurrent fetched data cannot overwrite a redacted row.
 - shop/redact cascades tenant deletion after uninstall. A delayed event for a prior installation does not erase an active verified reinstall.
 - Uninstall immediately clears tokens, disables automation, and marks the shop inactive.
@@ -77,7 +79,7 @@ Templates use a whitelist of substitutions without eval, PHP execution, Blade ev
 - Webhook payloads expire after 7 days; outstanding privacy exports after 30 days. Monitor unfinished privacy requests before expiry and fulfill them within Shopify's applicable deadline.
 - Failed jobs are pruned after 24 hours. Test job input is encrypted even in failed payloads.
 - Restrict and rotate webserver/application logs; omit authorization headers and query-string ID tokens from access logging. Never enable HTTP wire/body logging in production. MAIL_MAILER=log is only for local sample data.
-- Review backup retention and provider-held mail records as part of privacy fulfillment; database deletion does not erase external backups or an SMTP provider's records.
+- Review backup retention and provider-held mail records as part of privacy fulfillment; database deletion does not erase external backups or an email provider provider's records.
 
 ## Metrics
 
@@ -85,6 +87,6 @@ Revenue at risk is the database SUM of real Shopify dispute amounts whose curren
 
 ## Known release prerequisites
 
-External Shopify install, protected customer data approval, live GraphQL/Partner API checks, embedded browser behavior, SMTP delivery, cPanel upload, and public publication must be verified with real accounts. Unit/feature mocks are not evidence of those actions.
+External Shopify install, protected customer data approval, live GraphQL/Partner API checks, embedded browser behavior, email provider delivery, cPanel upload, and public publication must be verified with real accounts. Unit/feature mocks are not evidence of those actions.
 
 Composer audit currently reports advisories against Laravel 10.50.3 (email validation CRLF and temporary signed URL path confusion). This app adds strict FILTER_VALIDATE_EMAIL/control-character checks and does not use temporary signed URLs. Laravel 10 was retained as requested; these application defenses do not make the framework audit clean. Resolve the supported-maintenance/security-backport decision before a public production launch.

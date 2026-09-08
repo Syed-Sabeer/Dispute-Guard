@@ -1,10 +1,12 @@
+**Sender-domain release:** Follow [Merchant sending domains](MERCHANT_SENDING_DOMAINS.md) for the current Postmark configuration, verified merchant From rules, migration, and release report. Earlier application-From descriptions apply only to explicitly enabled fallback.
+
 # Dispute Guard production deployment
 
-This release preserves Laravel 10, MySQL, the official Shopify SDK and SMTP. No Redis, Horizon, Supervisor or permanent daemon is required. This guide supersedes the older cPanel guide's mandatory billing/test-email onboarding instructions.
+This release preserves Laravel 10, MySQL, the official Shopify SDK and Laravel Mail, with a Postmark API transport. No Redis, Horizon, Supervisor or permanent daemon is required. This guide supersedes the older cPanel guide's mandatory billing/test-email onboarding instructions.
 
 ## Release blockers
 
-Provide the permanent HTTPS domain, cPanel database/credentials, Shopify production credentials and authenticated SMTP sender. Replace the reserved `.invalid` URLs; do not deploy temporary tunnels or invent a domain. Confirm production protected customer data approval and granted scopes.
+Provide the permanent HTTPS domain, cPanel database/credentials, Shopify production credentials and authenticated email provider sender. Replace the reserved `.invalid` URLs; do not deploy temporary tunnels or invent a domain. Confirm production protected customer data approval and granted scopes.
 
 `composer audit` on 2026-09-08 reports Laravel framework signed URL path confusion (GHSA-crmm-hgp2-wgrp) and CRLF email validation (GHSA-5vg9-5847-vvmq, listed by two feeds). Merchant email validation already rejects control characters and app authentication does not use signed URLs, but these mitigations do not make the framework advisory-free. Resolve the security maintenance/framework upgrade decision before public launch. This release does not silently upgrade Laravel or claim a clean audit.
 
@@ -41,17 +43,15 @@ BILLING_ENFORCED=true
 SHOPIFY_API_KEY=YOUR_APP_CLIENT_ID
 SHOPIFY_API_SECRET=YOUR_APP_CLIENT_SECRET
 SHOPIFY_API_VERSION=2026-07
-MAIL_MAILER=smtp
-MAIL_HOST=YOUR_SMTP_HOST
-MAIL_PORT=587
-MAIL_USERNAME=YOUR_SMTP_USERNAME
-MAIL_PASSWORD=YOUR_SMTP_PASSWORD
-MAIL_ENCRYPTION=tls
+MAIL_MAILER=postmark
+POSTMARK_SERVER_TOKEN=YOUR_SERVER_TOKEN
+POSTMARK_ACCOUNT_TOKEN=YOUR_ACCOUNT_TOKEN
+MERCHANT_SENDER_REQUIRED=true
 MAIL_FROM_ADDRESS=notifications@YOUR_AUTHENTICATED_DOMAIN
 MAIL_FROM_NAME="Dispute Guard"
 ```
 
-Start with the global safety switch true during installation, then set false only when ready. The production example documents false for completed setup; merchant automation still defaults off and its delivery pause remains unchanged.
+Start with the global safety switch true during installation, then set false only when ready. Set CHARGEGUARD_TEST_MODE=false for completed setup; merchant automation still defaults off and its delivery pause remains unchanged.
 
 The three controls are independent: APP_ENV selects environment behavior; CHARGEGUARD_TEST_MODE blocks automatic customer mail; DISPUTEGUARD_ENABLE_TEST_TOOLS enables developer routes and test jobs only. If the tools flag is unset, only local/development/testing environments enable it. Demo routes always fail closed in production, even with their flag true.
 
@@ -60,7 +60,7 @@ Billing disabled requires BOTH the explicit prelaunch flag and an exact allowlis
 ## Deployment order
 
 1. Back up files, database and APP_KEY. Upload/clone to `/home/USER/disputeguard`, outside public_html. Exclude local `.env`, `.shopify`, logs, demo databases, local caches and test artifacts. Do not run production seeders.
-2. Select PHP 8.2+ for web and CLI. Verify the binary, e.g. `/opt/cpanel/ea-php82/root/usr/bin/php -v`. Enable PDO MySQL, cURL, OpenSSL, mbstring, fileinfo, XML/DOM, tokenizer and ctype. Verify outbound HTTPS/SMTP.
+2. Select PHP 8.2+ for web and CLI. Verify the binary, e.g. `/opt/cpanel/ea-php82/root/usr/bin/php -v`. Enable PDO MySQL, cURL, OpenSSL, mbstring, fileinfo, XML/DOM, tokenizer and ctype. Verify outbound HTTPS to Shopify, Postmark and the DNS resolver.
 3. Create the MySQL database and restricted user in cPanel.
 4. Configure `.env` above with real values.
 5. Install dependencies using the correct PHP binary:
@@ -88,7 +88,7 @@ Billing disabled requires BOTH the explicit prelaunch flag and an exact allowlis
 18. Open from Shopify Admin using an allowlisted shop. Verify authentication, navigation, HTTPS and iframe CSP. Do not copy session-token URLs into logs/tickets.
 19. Fetch a known order through ShopifyOrderService in Tinker and inspect only the normalized shipping result. Verify read_customers, read_orders, read_shopify_payments_disputes. Do not dump tokens or customer records. FULFILLED plus tracking/no carrier event must remain TRACKING_ADDED.
 20. For a controlled email test, temporarily enable DISPUTEGUARD_ENABLE_TEST_TOOLS, cache config, and send only to an operator-owned address. Verify provider delivery and the database email-log status. Test mail is labelled [TEST] and creates no dispute.
-21. Verify cron, queue age, HMAC rejection, webhook deduplication, and privacy/uninstall on an isolated validation shop. Investigate failed jobs and UNKNOWN SMTP outcomes; never blindly retry potentially delivered mail.
+21. Verify cron, queue age, HMAC rejection, webhook deduplication, and privacy/uninstall on an isolated validation shop. Investigate failed jobs and UNKNOWN email provider outcomes; never blindly retry potentially delivered mail.
 22. Disable test tools, cache config and run `queue:restart`. Queued developer emails are cancelled when tools are disabled. Health-check again. Never delete merchant records to clean up production UI; synthetic/test records are excluded.
 23. Enable real customer automation only using the sequence below.
 
@@ -103,19 +103,19 @@ Replace paths with the host's verified PHP binary:
 * * * * * cd /home/USER/disputeguard && /path/to/php artisan queue:work database --stop-when-empty --max-time=55 --tries=1 --timeout=50 >> /dev/null 2>&1
 ```
 
-If available, prefix the queue command with `/usr/bin/flock -n /home/USER/disputeguard/storage/queue.lock`. Database claims still protect concurrent workers. Existing jobs specify three bounded preparation retries, which override worker --tries=1; SMTP uncertainty is never automatically retried. retry_after=90 stays greater than job timeout=50. A running job may finish after max-time; verify host runtime limits. Without pcntl, process timeout enforcement is limited, so retain independent network timeouts and monitor backlog.
+If available, prefix the queue command with `/usr/bin/flock -n /home/USER/disputeguard/storage/queue.lock`. Database claims still protect concurrent workers. Existing jobs specify three bounded preparation retries, which override worker --tries=1; email provider uncertainty is never automatically retried. retry_after=90 stays greater than job timeout=50. A running job may finish after max-time; verify host runtime limits. Without pcntl, process timeout enforcement is limited, so retain independent network timeouts and monitor backlog.
 
 During setup, send cron errors to a protected operator log instead of /dev/null. Monitor failed jobs, pending privacy requests, oldest queue age and unknown deliveries. Maintenance prunes failed jobs after 24 hours. Failed-job storage is sensitive; never serve it publicly or clear cache locks while workers run.
 
 ## Enable live automation
 
-1. Complete authentication, GraphQL, webhook, SMTP domain (SPF/DKIM/DMARC) and cron validation.
+1. Complete authentication, GraphQL, webhook, email provider domain (SPF/DKIM/DMARC) and cron validation.
 2. Set CHARGEGUARD_TEST_MODE=false, leave demo/test tools false, run config:cache and queue:restart.
 3. Each merchant confirms store name, support/Reply-To addresses and reviews templates in Settings. Saving reviewed templates/support details completes onboarding without test mail or automatically enabling automation.
 4. Turn off the merchant delivery pause and explicitly activate automatic customer emails. Billing must verify a subscription or permit the private allowlisted shop.
 5. Observe an eligible NEW dispute. Existing historical disputes are not automatically emailed. Master switch, template, reason, shipment, recipient, active shop, onboarding, entitlement, duplicate/stale-state and privacy checks remain in force.
 
-From identity is the authenticated app SMTP domain; merchant addresses are Reply-To only. Production subjects have no app-added [TEST]; merchant template content is preserved. Neutral reason-specific wording and carrier-event precedence are unchanged.
+From identity is the authenticated app email provider domain; merchant addresses are Reply-To only. Production subjects have no app-added [TEST]; merchant template content is preserved. Neutral reason-specific wording and carrier-event precedence are unchanged.
 
 ## Enable billing later
 
@@ -123,7 +123,7 @@ Configure actual Shopify App Pricing plans, plan/item handles, SHOPIFY_PARTNER_I
 
 ## Rollback
 
-Pause incoming work/cron and drain in-flight sends. Preserve database, APP_KEY and delivery claims. Restore the previous compatible code, regenerate caches and restart workers. This release adds no migrations to reverse. Do not restore an old database snapshot blindly after mail has been sent: lost deduplication claims can cause duplicates. Reconcile SMTP provider records before retries. Restore matching Shopify URLs/config if changed, then health-check and verify authentication before resuming.
+Pause incoming work/cron and drain in-flight sends. Preserve database, APP_KEY and delivery claims. Restore the previous compatible code, regenerate caches and restart workers. This release adds two sender tables; preserve them on rollback, keep automation disabled, and do not roll back their migration after merchants configure senders. Do not restore an old database snapshot blindly after mail has been sent: lost deduplication claims can cause duplicates. Reconcile email provider provider records before retries. Restore matching Shopify URLs/config if changed, then health-check and verify authentication before resuming.
 
 ## Recover a hosting migration error: maximum key length 1000 bytes
 
