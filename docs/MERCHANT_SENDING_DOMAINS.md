@@ -1,8 +1,10 @@
+Current production sender behavior and deployment steps: [Production sender fixes](PRODUCTION_SENDER_FIXES.md).
+
 # Merchant sending domains — implementation report
 
 ## A. Architecture implemented
 
-The existing Laravel Mail pipeline uses a small Symfony-compatible Postmark API transport. No additional Composer package or merchant SMTP credentials are needed. A central account manages domains; its server sends transactional mail. Domain provisioning is shared safely, while each shop must independently prove DNS ownership. Verification expires after 15 minutes and refreshes on demand before sending. Failed refresh blocks required-sender mail.
+The existing Laravel Mail pipeline uses a small Symfony-compatible Postmark API transport. No additional Composer package or merchant SMTP credentials are needed. A central account manages domains; its server sends transactional mail. Domain provisioning is shared safely, while each shop must independently prove DNS ownership. Verification remains persisted; its freshness cache expires after 15 minutes and refreshes before sending. Temporary failures block that mail while preserving verified evidence and the automation preference.
 
 Postmark's DKIM verification flag is historical, so the app also checks current DKIM TXT, Return-Path CNAME and a per-shop ownership TXT through Cloudflare DNS-over-HTTPS. This introduces a public DNS resolver dependency; cached DNS and the 15-minute verification window mean removal is not instantaneous. See [Postmark Domains API](https://postmarkapp.com/developer/api/domains-api).
 
@@ -38,7 +40,7 @@ Provide an approved transactional Postmark account, an outbound server in that a
 
 ## F. Merchant workflow
 
-Open Settings ? email sender, enter sender name and a business-domain address, save, publish the displayed DNS records, then check verification. Once verified, review templates and explicitly enable automation. Verification never enables it automatically. Same-domain edits retain valid proof; a new domain requires new proof and disables automation. Disconnect requires confirmation, disables automation and retains the shared provider domain.
+Open Settings > email sender, enter sender name and a business-domain address, save, publish the displayed DNS records, then check verification. Once verified, review templates and explicitly enable automation. Verification never enables it automatically. Same-domain edits retain valid proof; a new domain requires new proof and disables automation. Disconnect requires confirmation, disables automation and retains the shared provider domain.
 
 ## G. Exact DNS records shown
 

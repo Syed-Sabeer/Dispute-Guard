@@ -30,6 +30,11 @@ class SendDisputeCustomerEmail extends QueuedJob
         }
         $shop = $delivery->shop;
         $dispute = $delivery->dispute;
+        if (! $this->senderUnchanged($delivery)) {
+            $this->cancel($delivery, 'Email sender changed while queued; manual review required.');
+
+            return;
+        }
         if ($dispute->reason !== $delivery->dispute_reason || $dispute->shipping_state !== $delivery->shipping_state) {
             $this->cancel($delivery, 'Dispute or shipment changed while queued; manual review required.');
 
@@ -72,6 +77,11 @@ class SendDisputeCustomerEmail extends QueuedJob
             $message = $composer->compose($shop, $template, $variables);
         } catch (EmailProviderException $e) {
             $this->cancel($delivery, $e->getMessage());
+
+            return;
+        }
+        if (! $this->senderUnchanged($delivery)) {
+            $this->cancel($delivery, 'Email sender changed while queued; manual review required.');
 
             return;
         }
@@ -125,7 +135,7 @@ class SendDisputeCustomerEmail extends QueuedJob
                 return;
             }
             // Email provider may have accepted the email even when the client reports failure. Never automatically resend.
-            $delivery->update(['status' => 'UNKNOWN', 'failure_reason' => 'Delivery outcome uncertain; review Email provider provider records before any further action.']);
+            $delivery->update(['status' => 'UNKNOWN', 'failure_reason' => 'Delivery outcome uncertain; review email provider records before any further action.']);
             $delivery->emailLog()->update(['status' => 'FAILED', 'error_message' => 'Email provider outcome uncertain. Automatic retry suppressed.']);
             $dispute->update(['automation_status' => 'MANUAL_REVIEW', 'review_reason' => 'Email delivery outcome uncertain; check provider records.']);
         }
@@ -141,6 +151,13 @@ class SendDisputeCustomerEmail extends QueuedJob
             $delivery->emailLog()->update(['status' => 'CANCELLED', 'error_message' => $reason, 'rendered_body' => null]);
             $delivery->dispute->update(['automation_status' => 'MANUAL_REVIEW', 'review_reason' => $reason]);
         });
+    }
+
+    private function senderUnchanged(AutomationDelivery $delivery): bool
+    {
+        // Legacy queued rows have no trustworthy snapshot and require manual review.
+        return $delivery->sender_identity_hash !== null && hash_equals($delivery->sender_identity_hash,
+            app(MerchantSenderService::class)->revisionKey($delivery->shop));
     }
 
     public function failed(?\Throwable $exception): void

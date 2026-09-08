@@ -10,6 +10,7 @@ use App\Models\AutomationDelivery;
 use App\Models\Dispute;
 use App\Models\EmailLog;
 use App\Models\Shop;
+use App\Services\Email\MerchantSenderService;
 use App\Services\Email\Recipient;
 use App\Services\Orders\OrderShippingStateResolver;
 use App\Services\Shopify\ShopifyDisputeService;
@@ -72,11 +73,12 @@ class DisputeProcessor
                 return $record;
             }
             $template = $this->automation->template($shop, $reason, $record->shipping_state);
+            $senderKey = app(MerchantSenderService::class)->revisionKey($shop);
             $blocked = ! $order ? 'Associated order unavailable; manual review required.' : $this->automation->blocked($shop, $record, $template);
             if (! $blocked && ! Recipient::valid($email)) {
                 $blocked = 'Customer email unavailable; manual review required.';
             }
-            DB::transaction(function () use ($shop, $record, $template, $blocked, $email) {
+            DB::transaction(function () use ($shop, $record, $template, $blocked, $email, $senderKey) {
                 $locked = Dispute::whereKey($record->id)->lockForUpdate()->firstOrFail();
                 if ($locked->initial_processed_at || $locked->redacted_at) {
                     return;
@@ -88,6 +90,7 @@ class DisputeProcessor
                 $delivery = AutomationDelivery::firstOrCreate(['dispute_id' => $locked->id], [
                     'shop_id' => $shop->id, 'email_template_id' => $template->id, 'shipping_state' => $locked->shipping_state,
                     'dispute_reason' => $locked->reason, 'recipient_hash' => $locked->customer_email_hash,
+                    'sender_identity_hash' => $senderKey,
                 ]);
                 if ($delivery->wasRecentlyCreated) {
                     EmailLog::create([

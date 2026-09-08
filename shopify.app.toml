@@ -2,8 +2,8 @@
 
 client_id = "7a2b14068b84ee71382d2f27b775b5ad"
 name = "Dispute Guard"
-# Replace this reserved placeholder with the permanent HTTPS domain before deploy.
-application_url = "https://REPLACE-WITH-PRODUCTION-DOMAIN.invalid"
+# Permanent production application URL.
+application_url = "https://disputeguard.deveoninc.com"
 embedded = true
 
 [build]
@@ -41,4 +41,4 @@ uri = "/webhooks/shopify/shop/redact"
 scopes = "read_customers,read_orders,read_shopify_payments_disputes"
 
 [auth]
-redirect_urls = [ "https://REPLACE-WITH-PRODUCTION-DOMAIN.invalid/auth/patch-id-token" ]
+redirect_urls = [ "https://disputeguard.deveoninc.com/auth/patch-id-token" ]

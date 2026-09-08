@@ -33,7 +33,7 @@ class SenderDnsVerifier
                 }
             }
         } catch (\Throwable) {
-            throw new EmailProviderException('TRANSIENT_BEFORE_SEND');
+            throw new EmailProviderException('TRANSIENT_VERIFICATION_FAILURE');
         }
 
         return false;

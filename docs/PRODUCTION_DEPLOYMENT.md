@@ -1,3 +1,5 @@
+Current production sender behavior and deployment steps: [Production sender fixes](PRODUCTION_SENDER_FIXES.md).
+
 **Sender-domain release:** Follow [Merchant sending domains](MERCHANT_SENDING_DOMAINS.md) for the current Postmark configuration, verified merchant From rules, migration, and release report. Earlier application-From descriptions apply only to explicitly enabled fallback.
 
 # Dispute Guard production deployment
@@ -19,7 +21,7 @@ APP_NAME="Dispute Guard"
 APP_ENV=production
 APP_DEBUG=false
 APP_KEY=YOUR_EXISTING_APPLICATION_KEY
-APP_URL=https://REPLACE-WITH-PRODUCTION-DOMAIN.invalid
+APP_URL=https://disputeguard.deveoninc.com
 LOG_CHANNEL=stack
 LOG_LEVEL=warning
 DB_CONNECTION=mysql

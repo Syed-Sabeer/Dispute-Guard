@@ -20,7 +20,7 @@ class PostmarkEmailProvider implements EmailProviderInterface
                 ->send($method, 'https://api.postmarkapp.com'.$path, [$method === 'GET' ? 'query' : 'json' => $data]);
         } catch (\Throwable) {
             // No request/response bodies or chained HTTP exceptions may escape.
-            throw new EmailProviderException($sending ? 'DELIVERY_OUTCOME_UNKNOWN' : 'TRANSIENT_BEFORE_SEND');
+            throw new EmailProviderException($sending ? 'DELIVERY_OUTCOME_UNKNOWN' : 'TRANSIENT_VERIFICATION_FAILURE');
         }
         $body = $response->json();
         if ($response->status() === 401) {
@@ -31,8 +31,14 @@ class PostmarkEmailProvider implements EmailProviderInterface
             if (! $sending && $path === '/domains' && $method === 'POST' && ($body['ErrorCode'] ?? null) === 512) {
                 return ['already_exists' => true];
             }
+            if (! $sending && $response->status() === 404) {
+                throw new EmailProviderException('SENDER_NOT_VERIFIED');
+            }
+            if (! $sending && in_array($response->status(), [400, 403, 413, 415, 422], true)) {
+                throw new EmailProviderException('CONFIGURATION');
+            }
             $definite = in_array($response->status(), [400, 404, 413, 415, 422, 429], true);
-            throw new EmailProviderException($sending ? ($definite ? 'DEFINITE_REJECTION' : 'DELIVERY_OUTCOME_UNKNOWN') : 'TRANSIENT_BEFORE_SEND');
+            throw new EmailProviderException($sending ? ($definite ? 'DEFINITE_REJECTION' : 'DELIVERY_OUTCOME_UNKNOWN') : 'TRANSIENT_VERIFICATION_FAILURE');
         }
 
         return $body;

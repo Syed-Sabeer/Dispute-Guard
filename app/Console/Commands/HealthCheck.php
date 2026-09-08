@@ -21,7 +21,7 @@ class HealthCheck extends Command
         $checks = [
             'PHP 8.2+' => PHP_VERSION_ID >= 80200, 'Database queue' => config('queue.default') === 'database',
             'Shopify credentials' => (bool) (config('shopify.api_key') && config('shopify.api_secret')),
-            'Mail sender' => Recipient::valid(config('mail.from.address')),
+            'Mail sender' => Recipient::valid(config('mail.from.address')) && ! preg_match('/[\p{C}<>]/u', config('mail.from.name', '')),
             'App key' => (bool) config('app.key'),
             'Storage writable' => is_writable(storage_path()),
             'Cache directory writable' => is_writable(base_path('bootstrap/cache')),
@@ -58,7 +58,7 @@ class HealthCheck extends Command
             $checks['Production Postmark mailer'] = config('mail.default') === 'postmark';
             $checks['Postmark send token configured'] = (bool) config('services.postmark.token') && config('services.postmark.token') !== 'POSTMARK_API_TEST';
             $checks['Postmark account token configured'] = (bool) config('services.postmark.account_token');
-            $this->line(config('senders.required') ? 'PASS Verified merchant senders required' : 'WARN App fallback sender enabled for automatic mail');
+            $checks['Verified merchant senders required'] = (bool) config('senders.required');
             $checks['Secure cookies'] = (bool) config('session.secure');
             $checks['Embedded cookies'] = config('session.same_site') === 'none';
         } else {

@@ -15,7 +15,7 @@
 @if($sender)
 <s-section heading="Authenticate your sending domain">
     <dl><dt>Sending domain</dt><dd>{{ $sender->sendingDomain->domain }}</dd>
-        <dt>Status</dt><dd><s-badge>{{ $sender->verification_status === 'VERIFIED' && app(\App\Services\Email\MerchantSenderService::class)->ready($shop) ? 'Verified' : ($sender->verification_status === 'REMOVED' ? 'Disconnected' : 'Verification required') }}</s-badge></dd>
+        <dt>Status</dt><dd><s-badge>{{ app(\App\Services\Email\MerchantSenderService::class)->statusLabel($shop) }}</s-badge></dd>
         <dt>Last checked</dt><dd>{{ $sender->last_checked_at?->format('M j, Y H:i').' UTC' }}</dd></dl>
     @if($sender->verification_status !== 'REMOVED')
     <s-paragraph>Add these exact records to your domain's DNS. The ownership record links this store to the domain; stores sharing a domain each need their own record. Some DNS hosts automatically append your domain to the host field.</s-paragraph>

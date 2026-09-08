@@ -1,7 +1,7 @@
 @extends('layouts.app')
 @section('title','Settings')
 @section('content')
-<s-section heading="Email sender"><s-paragraph>Authenticate your business domain to send customer emails from your own address.</s-paragraph><s-link href="/settings/email-sender">Configure email sender</s-link></s-section>
+<s-section heading="Email sender"><s-paragraph>{{ app(\App\Services\Email\MerchantSenderService::class)->statusLabel($shop) }}</s-paragraph><s-paragraph>Authenticate your business domain to send customer emails from your own address.</s-paragraph><s-link href="/settings/email-sender">Configure email sender</s-link></s-section>
 <s-section heading="Customer communication"><form data-api-form data-method="PUT" action="/settings"><div class="form-grid">
 <label>Store display name<input name="store_display_name" required maxlength="150" value="{{ $settings->store_display_name ?: $shop->store_name }}"></label>
 <label>Support email<input name="support_email" type="email" required value="{{ $settings->support_email }}"></label>

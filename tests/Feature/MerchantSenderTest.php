@@ -6,6 +6,7 @@ use App\Exceptions\EmailProviderException;
 use App\Jobs\SendDisputeCustomerEmail;
 use App\Models\AutomationDelivery;
 use App\Models\EmailLog;
+use App\Services\Disputes\AutomationResolver;
 use App\Services\Disputes\DisputeProcessor;
 use App\Services\Email\EmailComposer;
 use App\Services\Email\MerchantSenderService;
@@ -189,6 +190,7 @@ class MerchantSenderTest extends TestCase
     {
         $shop = $this->shop();
         $sender = $this->verified($shop);
+        $shop->settings()->update(['auto_email_enabled' => true]);
         $sender->update(['last_checked_at' => now()->subMinutes(16)]);
         Http::swap(new Factory);
         Http::preventStrayRequests();
@@ -200,8 +202,9 @@ class MerchantSenderTest extends TestCase
             $this->assertStringNotContainsString('private-account-token', $e->getMessage());
             $this->assertNull($e->getPrevious());
         }
-        $this->assertSame('FAILED', $sender->fresh()->verification_status);
-        $this->assertFalse($shop->settings()->first()->auto_email_enabled);
+        $this->assertSame('VERIFIED', $sender->fresh()->verification_status);
+        $this->assertNotNull($sender->fresh()->verification_refresh_failed_at);
+        $this->assertTrue($shop->settings()->first()->auto_email_enabled);
     }
 
     public function test_sender_disconnect_requires_confirmation_and_never_deletes_provider_domain(): void
@@ -226,6 +229,150 @@ class MerchantSenderTest extends TestCase
         app(DisputeProcessor::class)->process($shop, '789', true);
 
         return [$shop, AutomationDelivery::sole()];
+    }
+
+    public function test_stale_verified_sender_remains_verified_in_all_merchant_pages(): void
+    {
+        $shop = $this->shop();
+        $sender = $this->verified($shop);
+        $sender->update(['last_checked_at' => now()->subMinutes(16)]);
+        $service = app(MerchantSenderService::class);
+        $this->assertTrue($service->isVerified($shop));
+        $this->assertFalse($service->isVerificationFresh($shop));
+        app()->detectEnvironment(fn () => 'production');
+        config(['chargeguard.prelaunch' => true, 'chargeguard.prelaunch_shops' => [$shop->shop_domain]]);
+        $this->merchant($shop);
+        foreach (['/', '/settings', '/onboarding', '/settings/email-sender'] as $path) {
+            $this->get($path)->assertOk()->assertSee('Verified')->assertDontSee('Verification required')
+                ->assertDontSee('private-account-token')->assertDontSee('81234567');
+        }
+        Http::assertSentCount(3); // Rendering never makes verification calls.
+    }
+
+    public function test_stale_refresh_succeeds_before_real_transport_send(): void
+    {
+        [$shop, $delivery] = $this->queuedDelivery();
+        $shop->emailSender()->update(['last_checked_at' => now()->subMinutes(16)]);
+        app()->call([new SendDisputeCustomerEmail($delivery->id), 'handle']);
+        $this->assertSame('SENT', $delivery->fresh()->status);
+        $this->assertTrue(app(MerchantSenderService::class)->isVerificationFresh($shop));
+        Http::assertSentCount(6);
+    }
+
+    public static function outageTypes(): array
+    {
+        return [['provider'], ['dns']];
+    }
+
+    #[DataProvider('outageTypes')]
+    public function test_outage_blocks_current_mail_but_recovers_without_changing_preference(string $type): void
+    {
+        [$shop, $delivery] = $this->queuedDelivery();
+        $shop->emailSender()->update(['last_checked_at' => now()->subMinutes(16)]);
+        if ($type === 'provider') {
+            Http::swap(new Factory);
+            Http::preventStrayRequests();
+            Http::fake(['api.postmarkapp.com/*' => Http::response([], 503)]);
+        } else {
+            $this->mock(SenderDnsVerifier::class, fn ($m) => $m->shouldReceive('matches')->andThrow(new EmailProviderException('TRANSIENT_VERIFICATION_FAILURE')));
+        }
+        app()->call([new SendDisputeCustomerEmail($delivery->id), 'handle']);
+        $this->assertSame('CANCELLED', $delivery->fresh()->status);
+        $this->assertSame('MANUAL_REVIEW', $delivery->dispute->fresh()->automation_status);
+        $this->assertTrue($shop->settings()->first()->auto_email_enabled);
+        $service = app(MerchantSenderService::class);
+        $this->assertTrue($service->isVerified($shop));
+        $this->assertFalse($service->isVerificationFresh($shop));
+        $this->assertStringContainsString('temporarily unavailable', $service->statusLabel($shop));
+        Http::assertNotSent(fn ($r) => str_ends_with($r->url(), '/email'));
+        Http::swap(new Factory);
+        Http::preventStrayRequests();
+        $this->fakeProvider();
+        $this->mock(SenderDnsVerifier::class, fn ($m) => $m->shouldReceive('matches')->andReturn(true));
+        $service = app(MerchantSenderService::class);
+        $this->assertSame('support@store-one.com', $service->identity($shop)['email']);
+        $this->assertNull($shop->emailSender()->first()->verification_refresh_failed_at);
+        $this->assertTrue($shop->settings()->first()->auto_email_enabled);
+        $resolver = app(AutomationResolver::class);
+        $this->assertNull($resolver->blocked($shop, $delivery->dispute->fresh(), $delivery->template));
+        // Recovery restores eligibility, never replays the cancelled dispute.
+        app()->call([new SendDisputeCustomerEmail($delivery->id), 'handle']);
+        Http::assertNotSent(fn ($r) => str_ends_with($r->url(), '/email'));
+    }
+
+    public static function dnsRecords(): array
+    {
+        return [['dkim'], ['return_path'], ['ownership']];
+    }
+
+    #[DataProvider('dnsRecords')]
+    public function test_genuine_record_loss_blocks_from_but_preserves_preference(string $record): void
+    {
+        $shop = $this->shop();
+        $sender = $this->verified($shop);
+        $shop->settings()->update(['auto_email_enabled' => true]);
+        $host = match ($record) {
+            'dkim' => $sender->sendingDomain->dkim_host,
+            'return_path' => $sender->sendingDomain->return_path_host,
+            default => $sender->ownership_host,
+        };
+        $this->mock(SenderDnsVerifier::class, fn ($m) => $m->shouldReceive('matches')->andReturnUsing(fn ($name) => $name !== $host));
+        $service = app(MerchantSenderService::class);
+        $this->assertSame('PENDING', $service->check($shop)->verification_status);
+        $this->assertFalse($service->isVerified($shop));
+        $this->assertTrue($shop->settings()->first()->auto_email_enabled);
+        $this->expectException(EmailProviderException::class);
+        $service->identity($shop);
+    }
+
+    public function test_final_guard_refreshes_if_ttl_expires_after_composition(): void
+    {
+        $shop = $this->shop();
+        $this->verified($shop);
+        $service = app(MerchantSenderService::class);
+        $identity = $service->identity($shop);
+        $this->travel(16)->minutes();
+        $this->assertSame('sent', $service->guard($shop, $identity, false, fn () => 'sent'));
+        Http::assertSentCount(5);
+    }
+
+    public function test_failed_manual_recheck_invalidates_freshness_without_losing_verification(): void
+    {
+        $shop = $this->shop();
+        $this->verified($shop);
+        $shop->settings()->update(['auto_email_enabled' => true]);
+        $this->mock(SenderDnsVerifier::class, fn ($m) => $m->shouldReceive('matches')->andThrow(new EmailProviderException('TRANSIENT_VERIFICATION_FAILURE')));
+        $service = app(MerchantSenderService::class);
+        try {
+            $service->check($shop);
+            $this->fail('Recheck should fail.');
+        } catch (EmailProviderException $e) {
+            $this->assertSame('TRANSIENT_VERIFICATION_FAILURE', $e->category);
+        }
+        $this->assertTrue($service->isVerified($shop));
+        $this->assertFalse($service->isVerificationFresh($shop));
+        $this->assertTrue($shop->settings()->first()->auto_email_enabled);
+    }
+
+    public function test_final_guard_blocks_when_refresh_fails_after_composition(): void
+    {
+        $shop = $this->shop();
+        $this->verified($shop);
+        $identity = app(MerchantSenderService::class)->identity($shop);
+        $this->travel(16)->minutes();
+        $this->mock(SenderDnsVerifier::class, fn ($m) => $m->shouldReceive('matches')->andThrow(new EmailProviderException('TRANSIENT_VERIFICATION_FAILURE')));
+        $this->expectException(EmailProviderException::class);
+        app(MerchantSenderService::class)->guard($shop, $identity, false, fn () => $this->fail('Unverified send occurred.'));
+    }
+
+    public function test_same_domain_sender_edit_while_queued_cancels_delivery(): void
+    {
+        [$shop, $delivery] = $this->queuedDelivery();
+        app(MerchantSenderService::class)->save($shop, 'New Store Name', 'help@store-one.com');
+        app()->call([new SendDisputeCustomerEmail($delivery->id), 'handle']);
+        $this->assertSame('CANCELLED', $delivery->fresh()->status);
+        $this->assertStringContainsString('sender changed', $delivery->fresh()->failure_reason);
+        Http::assertNotSent(fn ($r) => str_ends_with($r->url(), '/email'));
     }
 
     public function test_automatic_email_uses_verified_from_reply_to_and_records_provider_id_once(): void

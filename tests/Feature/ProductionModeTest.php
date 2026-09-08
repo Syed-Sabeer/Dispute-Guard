@@ -177,6 +177,7 @@ class ProductionModeTest extends TestCase
     public function test_preflight_accepts_private_prelaunch_but_rejects_unsafe_production_flags(): void
     {
         config(['queue.default' => 'database', 'shopify.api_key' => 'configured', 'shopify.api_secret' => 'configured',
+            'senders.required' => true,
             'app.url' => 'https://merchant-app.test', 'mail.default' => 'postmark', 'mail.from.address' => 'sender@merchant-app.test',
             'services.postmark.token' => 'test-server-token', 'services.postmark.account_token' => 'test-account-token',
             'session.secure' => true, 'session.same_site' => 'none', 'chargeguard.demo_mode' => false,

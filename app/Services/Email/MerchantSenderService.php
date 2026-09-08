@@ -51,7 +51,7 @@ class MerchantSenderService
             $values = ['sender_name' => trim($name), 'sender_email' => $email, 'email_sending_domain_id' => $domain->id, 'revision' => ($sender?->revision ?? 0) + 1];
             if (! $sameDomain) {
                 $values += ['verification_status' => 'PENDING', 'dkim_verified' => false, 'return_path_verified' => false, 'ownership_verified' => false,
-                    'last_checked_at' => null, 'verified_at' => null, 'ownership_host' => '_disputeguard-'.bin2hex(random_bytes(8)).'.'.$domainName,
+                    'last_checked_at' => null, 'verified_at' => null, 'verification_refresh_failed_at' => null, 'ownership_host' => '_disputeguard-'.bin2hex(random_bytes(8)).'.'.$domainName,
                     'ownership_value' => 'disputeguard-verification='.bin2hex(random_bytes(24))];
                 $shop->settings()->update(['auto_email_enabled' => false]);
             }
@@ -109,14 +109,17 @@ class MerchantSenderService
             $ownership = $this->dns->matches($sender->ownership_host, $sender->ownership_value, 'TXT');
             $verified = $dkim && $rp && $ownership;
             $sender->update(['verification_status' => $verified ? 'VERIFIED' : 'PENDING', 'dkim_verified' => $dkim, 'return_path_verified' => (bool) $rp,
-                'ownership_verified' => $ownership, 'last_checked_at' => now(), 'verified_at' => $verified ? now() : null]);
-            if (! $verified) {
-                $shop->settings()->update(['auto_email_enabled' => false]);
-            }
+                'ownership_verified' => $ownership, 'last_checked_at' => now(), 'verified_at' => $verified ? now() : null,
+                'verification_refresh_failed_at' => null]);
         } catch (EmailProviderException $e) {
-            $sender->update(['verification_status' => 'FAILED', 'verified_at' => null, 'last_checked_at' => now(),
-                'dkim_verified' => false, 'return_path_verified' => false, 'ownership_verified' => false]);
-            $shop->settings()->update(['auto_email_enabled' => false]);
+            if ($e->category === 'SENDER_NOT_VERIFIED' || (isset($dkim) && ! $dkim) || (isset($rp) && ! $rp)) {
+                // Preserve confirmed negative evidence even if a later lookup failed.
+                $sender->update(['verification_status' => 'PENDING', 'verified_at' => null,
+                    'dkim_verified' => false, 'return_path_verified' => false, 'ownership_verified' => false]);
+            }
+            // An unavailable service provides no evidence that DNS ownership was lost.
+            // The failure marker invalidates freshness, including a failed manual recheck.
+            $sender->update(['verification_refresh_failed_at' => now()]);
             throw $e;
         }
 
@@ -128,12 +131,11 @@ class MerchantSenderService
         return str_ends_with(strtolower($host), '.'.$domain) && ! preg_match('/[\x00-\x20]/', $host);
     }
 
-    public function ready(Shop $shop): bool
+    public function isVerified(Shop $shop): bool
     {
         $sender = $shop->emailSender()->with('sendingDomain')->first();
         if (! $shop->active() || ! $sender || $sender->verification_status !== 'VERIFIED'
-            || ! $sender->dkim_verified || ! $sender->return_path_verified || ! $sender->ownership_verified
-            || ! $sender->last_checked_at || $sender->last_checked_at->lt(now()->subMinutes(config('senders.verification_ttl_minutes')))) {
+            || ! $sender->dkim_verified || ! $sender->return_path_verified || ! $sender->ownership_verified || ! $sender->sendingDomain) {
             return false;
         }
         try {
@@ -141,11 +143,48 @@ class MerchantSenderService
         } catch (ValidationException) {
             return false;
         }
-        if (! trim($sender->sender_name) || preg_match('/[\p{C}<>]/u', $sender->sender_name)) {
+        if (! trim($sender->sender_name) || mb_strlen($sender->sender_name) > 100 || preg_match('/[\p{C}<>]/u', $sender->sender_name)) {
             return false;
         }
 
         return substr(strrchr($email, '@'), 1) === $sender->sendingDomain->domain && (bool) $sender->sendingDomain->provider_domain_id;
+    }
+
+    public function isVerificationFresh(Shop $shop): bool
+    {
+        $sender = $shop->emailSender()->first();
+
+        return $this->isVerified($shop) && ! $sender->verification_refresh_failed_at
+            && $sender->last_checked_at && $sender->last_checked_at->gte(now()->subMinutes(config('senders.verification_ttl_minutes')));
+    }
+
+    // Backwards-compatible strict eligibility; UI must use persisted state instead.
+    public function ready(Shop $shop): bool
+    {
+        return $this->isVerificationFresh($shop);
+    }
+
+    public function statusLabel(Shop $shop): string
+    {
+        $sender = $shop->emailSender()->first();
+        if (! $sender) {
+            return 'Not configured';
+        }
+        if ($sender->verification_status === 'REMOVED') {
+            return 'Disconnected';
+        }
+        if ($sender->verification_refresh_failed_at) {
+            return $this->isVerified($shop) ? 'Verified — latest re-check temporarily unavailable' : 'Temporarily unable to re-check';
+        }
+
+        return $this->isVerified($shop) ? 'Verified' : 'Verification required';
+    }
+
+    public function revisionKey(Shop $shop): string
+    {
+        $sender = $shop->emailSender()->first();
+
+        return hash('sha256', json_encode([$sender?->id, $sender?->revision, config('mail.from.address'), config('mail.from.name')]));
     }
 
     public function configured(): bool
@@ -156,7 +195,7 @@ class MerchantSenderService
     public function identity(Shop $shop, bool $test = false, bool $refresh = true): array
     {
         $sender = $shop->emailSender()->first();
-        if ($refresh && $sender && $sender->verification_status !== 'REMOVED' && (! $sender->last_checked_at || $sender->last_checked_at->lt(now()->subMinutes(config('senders.verification_ttl_minutes'))))) {
+        if ($refresh && $sender && $sender->verification_status !== 'REMOVED' && ($sender->verification_refresh_failed_at || ! $sender->last_checked_at || $sender->last_checked_at->lt(now()->subMinutes(config('senders.verification_ttl_minutes'))))) {
             try {
                 $this->check($shop);
             } catch (EmailProviderException $e) {
@@ -183,6 +222,10 @@ class MerchantSenderService
     public function guard(Shop $shop, array $identity, bool $test, callable $send): mixed
     {
         return $this->locked($shop, function () use ($shop, $identity, $test, $send) {
+            // Already holding the sender lock: refresh directly, without reacquiring it.
+            if ($identity['id'] !== null && ! $this->isVerificationFresh($shop)) {
+                $this->refresh($shop);
+            }
             if (! $shop->fresh()->active() || $this->identity($shop, $test, false) !== $identity) {
                 throw new EmailProviderException('SENDER_NOT_VERIFIED');
             }
