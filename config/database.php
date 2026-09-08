@@ -57,7 +57,8 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'strict' => true,
-            'engine' => null,
+            // Required for transactional delivery claims, foreign keys and utf8mb4 indexes.
+            'engine' => 'InnoDB',
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],

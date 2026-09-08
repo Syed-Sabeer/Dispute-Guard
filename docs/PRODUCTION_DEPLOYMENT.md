@@ -125,6 +125,28 @@ Configure actual Shopify App Pricing plans, plan/item handles, SHOPIFY_PARTNER_I
 
 Pause incoming work/cron and drain in-flight sends. Preserve database, APP_KEY and delivery claims. Restore the previous compatible code, regenerate caches and restart workers. This release adds no migrations to reverse. Do not restore an old database snapshot blindly after mail has been sent: lost deduplication claims can cause duplicates. Reconcile SMTP provider records before retries. Restore matching Shopify URLs/config if changed, then health-check and verify authentication before resuming.
 
+## Recover a hosting migration error: maximum key length 1000 bytes
+
+This limit is characteristic of MyISAM. The application explicitly selects InnoDB in `config/database.php`; transactions and row locks are essential to mail deduplication. Do not work around it by shrinking every string or disabling foreign keys.
+
+Upload the updated database config, run `php artisan config:clear`, and inspect the selected database in phpMyAdmin:
+
+```sql
+SHOW ENGINES;
+SELECT TABLE_NAME, ENGINE, ROW_FORMAT
+FROM information_schema.TABLES
+WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE';
+```
+
+If the failed installation created only `migrations` and `users` using MyISAM, back up first and convert those existing tables (these commands preserve rows):
+
+```sql
+ALTER TABLE migrations ENGINE=InnoDB;
+ALTER TABLE users ENGINE=InnoDB;
+```
+
+Then run `php artisan migrate --force` without `--seed`, followed by `php artisan config:cache`. Laravel skips migrations already recorded as complete. Do not use migrate:fresh. If the failed table exists despite the error or later migrations partially created tables, inspect its structure and migration status before proceeding; do not drop tables blindly. If InnoDB is unavailable or uses a legacy index-limited row format, ask the host to enable a supported InnoDB configuration (DYNAMIC row format, normal 16KB pages). Health-check now flags any existing non-InnoDB base tables.
+
 ## References
 
 - [Shopify app configuration](https://shopify.dev/docs/apps/build/cli-for-apps/app-configuration)

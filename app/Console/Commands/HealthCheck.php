@@ -30,6 +30,10 @@ class HealthCheck extends Command
         try {
             DB::select('SELECT 1');
             $checks['Database'] = true;
+            if (DB::connection()->getDriverName() === 'mysql') {
+                $tables = DB::select("SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE'");
+                $checks['Transactional InnoDB tables'] = collect($tables)->every(fn ($table) => strtoupper($table->ENGINE) === 'INNODB');
+            }
             $checks['Required tables'] = collect(['migrations', 'shops', 'shop_settings', 'disputes', 'email_templates', 'email_logs', 'automation_deliveries', 'webhook_events', 'privacy_requests', 'jobs', 'failed_jobs'])->every(fn ($table) => Schema::hasTable($table));
             $migrations = array_map(fn ($file) => basename($file, '.php'), glob(database_path('migrations/*.php')));
             $checks['Migrations applied'] = Schema::hasTable('migrations') && ! array_diff($migrations, DB::table('migrations')->pluck('migration')->all());
