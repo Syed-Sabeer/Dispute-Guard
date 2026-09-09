@@ -24,6 +24,7 @@ class ProductionModeTest extends TestCase
         parent::setUp();
         $this->app->instance('env', 'production');
         config(['app.debug' => false, 'chargeguard.test_tools' => null, 'chargeguard.billing_enabled' => true,
+            'mail.default' => 'postmark', 'services.postmark.token' => 'test-server-token',
             'chargeguard.prelaunch' => false, 'chargeguard.prelaunch_shops' => [], 'chargeguard.test_mode' => false]);
         Http::preventStrayRequests();
     }
@@ -177,15 +178,17 @@ class ProductionModeTest extends TestCase
     public function test_preflight_accepts_private_prelaunch_but_rejects_unsafe_production_flags(): void
     {
         config(['queue.default' => 'database', 'shopify.api_key' => 'configured', 'shopify.api_secret' => 'configured',
-            'senders.required' => true,
+
             'app.url' => 'https://merchant-app.test', 'mail.default' => 'postmark', 'mail.from.address' => 'sender@merchant-app.test',
             'services.postmark.token' => 'test-server-token', 'services.postmark.account_token' => 'test-account-token',
             'session.secure' => true, 'session.same_site' => 'none', 'chargeguard.demo_mode' => false,
             'chargeguard.billing_enabled' => false, 'chargeguard.prelaunch' => true, 'chargeguard.prelaunch_shops' => ['private.myshopify.com']]);
         $this->artisan('chargeguard:health-check')->expectsOutput('WARN Billing disabled for prelaunch; public launch is not permitted')->assertExitCode(0);
+        config(['services.postmark.account_token' => '']);
+        $this->artisan('chargeguard:health-check')->expectsOutput('WARN Advanced custom-domain management unavailable; managed sending is unaffected')->assertExitCode(0);
         config(['services.postmark.token' => '', 'services.postmark.account_token' => '']);
-        $this->artisan('chargeguard:health-check')->expectsOutput('FAIL Postmark send token configured')
-            ->expectsOutput('FAIL Postmark account token configured')->assertExitCode(1);
+        $this->artisan('chargeguard:health-check')->expectsOutput('FAIL Managed sender configuration')
+            ->expectsOutput('FAIL Postmark send token configured')->assertExitCode(1);
         config(['chargeguard.test_tools' => true, 'chargeguard.demo_mode' => true]);
         $this->artisan('chargeguard:health-check')->expectsOutput('FAIL Demo disabled')->expectsOutput('FAIL Test tools disabled')->assertExitCode(1);
     }

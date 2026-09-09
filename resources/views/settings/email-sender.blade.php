@@ -1,6 +1,8 @@
 @extends('layouts.app')
 @section('title', 'Email sender')
 @section('content')
+<s-section heading="Email sender"><s-paragraph>Managed by Dispute Guard — no DNS setup required</s-paragraph><s-paragraph>Verified custom senders are preferred when available. Otherwise new emails use managed sending.</s-paragraph></s-section>
+<details><summary>Advanced: Custom sending domain (optional)</summary>
 <s-section heading="Send from your business email">
     <s-paragraph>Use an email address on a domain you own, such as support@yourstore.com. You must be able to edit its DNS records. No mailbox or SMTP password is needed.</s-paragraph>
     <form data-api-form data-method="PUT" action="/settings/email-sender">
@@ -8,7 +10,7 @@
             <label>Sender name<input name="sender_name" required maxlength="100" value="{{ $sender?->sender_name ?? $shop->settings?->store_display_name }}"></label>
             <label>Sender email<input name="sender_email" required type="email" maxlength="254" value="{{ $sender?->sender_email }}"></label>
         </div>
-        <s-paragraph>Changing your sending domain pauses automatic emails until you verify the new domain and enable automation again.</s-paragraph>
+        <s-paragraph>Changing your custom domain requires verification before it can be used. New emails can use managed sending; queued emails never switch identities.</s-paragraph>
         <div class="actions"><button>Save sender</button><s-link href="/settings">Back to settings</s-link></div>
     </form>
 </s-section>
@@ -26,8 +28,9 @@
     </tbody></table></div>
     <s-paragraph>DNS changes can take time to propagate. After adding the records, click Check verification. Keep all records published while using this sender.</s-paragraph>
     <form data-api-form action="/settings/email-sender/verify"><div class="actions"><button>Check verification</button></div></form>
-    <form data-api-form action="/settings/email-sender/disconnect"><button data-confirm="Disconnect this sender and disable automatic customer emails?">Disconnect sender</button></form>
+    <form data-api-form action="/settings/email-sender/disconnect"><button data-confirm="Disconnect this custom sender and use managed sending for new emails?">Disconnect sender</button></form>
     @endif
 </s-section>
 @endif
+</details>
 @endsection

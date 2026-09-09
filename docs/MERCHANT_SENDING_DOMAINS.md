@@ -1,3 +1,5 @@
+Historical release report. For current defaults, configuration, queue snapshots and deployment use [Managed sending](MANAGED_SENDING.md); merchant DNS is now optional.
+
 Current production sender behavior and deployment steps: [Production sender fixes](PRODUCTION_SENDER_FIXES.md).
 
 # Merchant sending domains — implementation report

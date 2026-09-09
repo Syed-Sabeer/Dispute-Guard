@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Exceptions\EmailProviderException;
 use App\Services\Email\EmailProviderInterface;
+use App\Services\Email\MerchantSenderService;
 use App\Services\Email\Recipient;
 use Illuminate\Console\Command;
 use Symfony\Component\Mime\Address;
@@ -22,7 +23,13 @@ class PostmarkSmokeTest extends Command
 
             return self::FAILURE;
         }
-        $from = config('mail.from.address');
+        try {
+            $from = app(MerchantSenderService::class)->managedAddress();
+        } catch (EmailProviderException) {
+            $this->error('FAIL Configure Postmark and a valid managed sender.');
+
+            return self::FAILURE;
+        }
         $name = config('mail.from.name', 'Dispute Guard');
         if (config('mail.default') !== 'postmark' || ! config('services.postmark.token')
             || config('services.postmark.token') === 'POSTMARK_API_TEST'

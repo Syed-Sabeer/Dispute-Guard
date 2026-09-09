@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Disputes;
 
+use App\Exceptions\EmailProviderException;
 use App\Exceptions\ShopifyApiException;
 use App\Jobs\SendDisputeCustomerEmail;
 use App\Models\AutomationDelivery;
@@ -73,10 +74,17 @@ class DisputeProcessor
                 return $record;
             }
             $template = $this->automation->template($shop, $reason, $record->shipping_state);
-            $senderKey = app(MerchantSenderService::class)->revisionKey($shop);
             $blocked = ! $order ? 'Associated order unavailable; manual review required.' : $this->automation->blocked($shop, $record, $template);
             if (! $blocked && ! Recipient::valid($email)) {
                 $blocked = 'Customer email unavailable; manual review required.';
+            }
+            $senderKey = null;
+            if (! $blocked) {
+                try {
+                    $senderKey = app(MerchantSenderService::class)->revisionKey($shop);
+                } catch (EmailProviderException $e) {
+                    $blocked = $e->getMessage();
+                }
             }
             DB::transaction(function () use ($shop, $record, $template, $blocked, $email, $senderKey) {
                 $locked = Dispute::whereKey($record->id)->lockForUpdate()->firstOrFail();

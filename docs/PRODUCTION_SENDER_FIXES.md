@@ -1,3 +1,5 @@
+Historical release report. For current defaults, configuration, queue snapshots and deployment use [Managed sending](MANAGED_SENDING.md); merchant DNS is now optional.
+
 # Production sender fixes and validation report
 
 ## A. Files changed

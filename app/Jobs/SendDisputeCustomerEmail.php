@@ -156,8 +156,15 @@ class SendDisputeCustomerEmail extends QueuedJob
     private function senderUnchanged(AutomationDelivery $delivery): bool
     {
         // Legacy queued rows have no trustworthy snapshot and require manual review.
-        return $delivery->sender_identity_hash !== null && hash_equals($delivery->sender_identity_hash,
-            app(MerchantSenderService::class)->revisionKey($delivery->shop));
+        if (! $delivery->shop->fresh()?->active()) {
+            return false;
+        }
+        try {
+            return $delivery->sender_identity_hash !== null && hash_equals($delivery->sender_identity_hash,
+                app(MerchantSenderService::class)->revisionKey($delivery->shop));
+        } catch (EmailProviderException) {
+            return false;
+        }
     }
 
     public function failed(?\Throwable $exception): void

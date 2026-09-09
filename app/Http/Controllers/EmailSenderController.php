@@ -33,6 +33,6 @@ class EmailSenderController extends MerchantController
         abort_unless($request->boolean('confirmed'), 422, 'Confirm disconnecting this sender.');
         $senders->disconnect($this->shop());
 
-        return response()->json(['message' => 'Sender disconnected and automatic customer emails disabled.', 'reload' => true]);
+        return response()->json(['message' => 'Custom sender disconnected. New emails will use managed sending.', 'reload' => true]);
     }
 }

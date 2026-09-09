@@ -1,6 +1,4 @@
-Current production sender behavior and deployment steps: [Production sender fixes](PRODUCTION_SENDER_FIXES.md).
-
-**Sender-domain release:** Follow [Merchant sending domains](MERCHANT_SENDING_DOMAINS.md) for the current Postmark configuration, verified merchant From rules, migration, and release report. Earlier application-From descriptions apply only to explicitly enabled fallback.
+Current sender architecture and validation procedure: [Managed sending](MANAGED_SENDING.md). Merchant DNS is optional.
 
 # Dispute Guard production deployment
 
@@ -48,7 +46,8 @@ SHOPIFY_API_VERSION=2026-07
 MAIL_MAILER=postmark
 POSTMARK_SERVER_TOKEN=YOUR_SERVER_TOKEN
 POSTMARK_ACCOUNT_TOKEN=YOUR_ACCOUNT_TOKEN
-MERCHANT_SENDER_REQUIRED=true
+MANAGED_SENDER_ADDRESS=YOUR_DISPUTEGUARD_OWNED_ADDRESS
+MANAGED_SENDER_DOMAIN=YOUR_AUTHENTICATED_DOMAIN
 MAIL_FROM_ADDRESS=notifications@YOUR_AUTHENTICATED_DOMAIN
 MAIL_FROM_NAME="Dispute Guard"
 ```
@@ -117,7 +116,7 @@ During setup, send cron errors to a protected operator log instead of /dev/null.
 4. Turn off the merchant delivery pause and explicitly activate automatic customer emails. Billing must verify a subscription or permit the private allowlisted shop.
 5. Observe an eligible NEW dispute. Existing historical disputes are not automatically emailed. Master switch, template, reason, shipment, recipient, active shop, onboarding, entitlement, duplicate/stale-state and privacy checks remain in force.
 
-From identity is the authenticated app email provider domain; merchant addresses are Reply-To only. Production subjects have no app-added [TEST]; merchant template content is preserved. Neutral reason-specific wording and carrier-event precedence are unchanged.
+Default From uses the authenticated managed domain and store display name; Reply-To uses merchant support/reply settings. Advanced verified custom senders are preferred when available. Production subjects have no app-added [TEST]; merchant template content is preserved. Neutral reason-specific wording and carrier-event precedence are unchanged.
 
 ## Enable billing later
 

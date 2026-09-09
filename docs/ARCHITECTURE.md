@@ -1,6 +1,4 @@
-Current production sender behavior and deployment steps: [Production sender fixes](PRODUCTION_SENDER_FIXES.md).
-
-**Sender-domain release:** Follow [Merchant sending domains](MERCHANT_SENDING_DOMAINS.md) for the current Postmark configuration, verified merchant From rules, migration, and release report. Earlier application-From descriptions apply only to explicitly enabled fallback.
+Current sender architecture and validation procedure: [Managed sending](MANAGED_SENDING.md). Merchant DNS is optional.
 
 # ChargeGuard V1 architecture
 
@@ -63,7 +61,7 @@ Refund records and their transaction statuses are displayed separately. A refund
 
 Immediately before sending, refresh shop/settings/dispute/template eligibility. Fetch the actual Shopify order email and require it to match the hash captured during processing. A recipient change causes manual review, not redirection.
 
-A short transaction changes a delivery from QUEUED to SENDING and creates its log. Only one worker can win this conditional claim. email provider executes outside transactions. The successful result marks the delivery/log SENT and the dispute EMAIL_SENT. Mail uses the verified merchant From name/address and a validated merchant Reply-To. Application From is available only for test mail or explicitly enabled optional fallback.
+A short transaction changes a delivery from QUEUED to SENDING and creates its log. Only one worker can win this conditional claim. email provider executes outside transactions. The successful result marks the delivery/log SENT and the dispute EMAIL_SENT. Mail prefers a verified custom sender when available; otherwise it uses the managed address with the store display name and merchant Reply-To. Queue snapshots prohibit switching identities after queuing.
 
 **email provider cannot provide exactly-once delivery across a process crash.** If email provider throws after the claim, the result becomes UNKNOWN/manual review; it is not automatically retried. If a worker dies after email provider accepted the email, maintenance marks stale SENDING records uncertain after five minutes. Check provider records. Do not reset a claim or blindly retry uncertain mail. Pre-send transient Shopify failures can retry safely.
 

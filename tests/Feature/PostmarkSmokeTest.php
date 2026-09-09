@@ -19,7 +19,7 @@ class PostmarkSmokeTest extends TestCase
         parent::setUp();
         app()->detectEnvironment(fn () => 'production');
         config(['mail.default' => 'postmark', 'services.postmark.token' => 'secret-server-token',
-            'services.postmark.account_token' => '', 'senders.required' => true,
+            'services.postmark.account_token' => '',
             'mail.from.address' => 'notifications@app-domain.com', 'mail.from.name' => 'Dispute Guard',
             'chargeguard.test_mode' => true, 'chargeguard.test_tools' => false]);
         Http::preventStrayRequests();

@@ -53,7 +53,6 @@ class MerchantSenderService
                 $values += ['verification_status' => 'PENDING', 'dkim_verified' => false, 'return_path_verified' => false, 'ownership_verified' => false,
                     'last_checked_at' => null, 'verified_at' => null, 'verification_refresh_failed_at' => null, 'ownership_host' => '_disputeguard-'.bin2hex(random_bytes(8)).'.'.$domainName,
                     'ownership_value' => 'disputeguard-verification='.bin2hex(random_bytes(24))];
-                $shop->settings()->update(['auto_email_enabled' => false]);
             }
             // Invalidate the previous From before any provider request can fail.
             $sender = $shop->emailSender()->updateOrCreate([], $values);
@@ -182,9 +181,49 @@ class MerchantSenderService
 
     public function revisionKey(Shop $shop): string
     {
-        $sender = $shop->emailSender()->first();
+        return $this->identityKey($shop, $this->identity($shop));
+    }
 
-        return hash('sha256', json_encode([$sender?->id, $sender?->revision, config('mail.from.address'), config('mail.from.name')]));
+    public function identityKey(Shop $shop, array $identity): string
+    {
+        return hash('sha256', json_encode(['managed-first-v1', $shop->id, $identity]));
+    }
+
+    public function managedAddress(): string
+    {
+        $address = config('senders.managed_address') ?? config('mail.from.address');
+        $domain = config('senders.managed_domain') ?? substr(strrchr((string) $address, '@') ?: '', 1);
+        if (! Recipient::valid($address) || preg_match('/[\x00-\x20\x7f]/', $address)
+            || ! is_string($domain) || ! str_contains($domain, '.')
+            || ! filter_var($domain, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME)
+            || strtolower(substr(strrchr($address, '@'), 1)) !== strtolower($domain)) {
+            throw new EmailProviderException('CONFIGURATION');
+        }
+
+        return $address;
+    }
+
+    public function managedConfigured(): bool
+    {
+        try {
+            $this->managedAddress();
+
+            return ! app()->environment('production') || (config('mail.default') === 'postmark'
+                && config('services.postmark.token') && config('services.postmark.token') !== 'POSTMARK_API_TEST');
+        } catch (EmailProviderException) {
+            return false;
+        }
+    }
+
+    private function withReplyTo(Shop $shop, array $identity): array
+    {
+        $settings = $shop->settings()->first();
+        foreach ([$settings?->reply_to_email, $settings?->support_email, $identity['email']] as $reply) {
+            if (Recipient::valid($reply) && ! preg_match('/[\x00-\x20\x7f]/', $reply)) {
+                return $identity + ['reply_to' => $reply];
+            }
+        }
+        throw new EmailProviderException('CONFIGURATION');
     }
 
     public function configured(): bool
@@ -199,24 +238,22 @@ class MerchantSenderService
             try {
                 $this->check($shop);
             } catch (EmailProviderException $e) {
-                if (! $test && config('senders.required')) {
-                    throw $e;
-                }
+                // A new message may use managed sending. Queued snapshots forbid switching.
             }
         }
         if ($this->configured() && $this->ready($shop)) {
             $sender = $shop->emailSender()->first();
 
-            return ['email' => $sender->sender_email, 'name' => $sender->sender_name, 'revision' => $sender->revision, 'id' => $sender->id];
+            return $this->withReplyTo($shop, ['email' => $sender->sender_email, 'name' => $sender->sender_name, 'revision' => $sender->revision, 'id' => $sender->id]);
         }
-        if (! $test && config('senders.required')) {
-            throw new EmailProviderException($this->configured() ? 'SENDER_NOT_VERIFIED' : 'CONFIGURATION');
-        }
-        if (! Recipient::valid(config('mail.from.address')) || preg_match('/[\r\n\x00]/', config('mail.from.name', ''))) {
+        if (! $this->managedConfigured()) {
             throw new EmailProviderException('CONFIGURATION');
         }
+        $name = $shop->settings()->first()?->store_display_name ?: $shop->store_name;
+        $name = trim(preg_replace('/[\p{C}<>]+/u', ' ', (string) $name) ?? '');
+        $name = mb_substr($name, 0, 100) ?: 'Dispute Guard';
 
-        return ['email' => config('mail.from.address'), 'name' => config('mail.from.name'), 'revision' => null, 'id' => null];
+        return $this->withReplyTo($shop, ['email' => $this->managedAddress(), 'name' => $name, 'revision' => null, 'id' => null]);
     }
 
     public function guard(Shop $shop, array $identity, bool $test, callable $send): mixed
@@ -238,7 +275,6 @@ class MerchantSenderService
     {
         $this->locked($shop, function () use ($shop) {
             $shop->emailSender()->update(['verification_status' => 'REMOVED', 'verified_at' => null, 'dkim_verified' => false, 'return_path_verified' => false, 'ownership_verified' => false]);
-            $shop->settings()->update(['auto_email_enabled' => false]);
         });
     }
 }

@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
-use App\Services\CurrentShop;
-
 class UpdateShopSettingsRequest extends MerchantRequest
 {
     public function rules(): array
@@ -19,14 +17,6 @@ class UpdateShopSettingsRequest extends MerchantRequest
         $validator->after(function ($v) {
             if (! $this->boolean('auto_email_enabled')) {
                 return;
-            }
-            $shop = app(CurrentShop::class)->get();
-            if (config('senders.required')) {
-                try {
-                    app(\App\Services\Email\MerchantSenderService::class)->identity($shop);
-                } catch (\App\Exceptions\EmailProviderException $e) {
-                    $v->errors()->add('auto_email_enabled', $e->getMessage());
-                }
             }
             if (! $this->boolean('templates_reviewed')) {
                 $v->errors()->add('auto_email_enabled', 'Review the email templates before activating automation.');

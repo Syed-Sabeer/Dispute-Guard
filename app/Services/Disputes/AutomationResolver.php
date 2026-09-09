@@ -11,6 +11,7 @@ use App\Models\Dispute;
 use App\Models\EmailTemplate;
 use App\Models\Shop;
 use App\Services\Billing\BillingServiceInterface;
+use App\Services\Email\MerchantSenderService;
 
 class AutomationResolver
 {
@@ -57,12 +58,8 @@ class AutomationResolver
         if (! $template) {
             return 'Matching template is disabled or missing.';
         }
-        if (config('senders.required')) {
-            try {
-                app(\App\Services\Email\MerchantSenderService::class)->identity($shop);
-            } catch (\App\Exceptions\EmailProviderException $e) {
-                return $e->getMessage();
-            }
+        if (! app(MerchantSenderService::class)->managedConfigured()) {
+            return 'Email delivery is not configured. Please contact app support.';
         }
         if (! app(BillingServiceInterface::class)->entitled($shop)) {
             return 'Active subscription could not be verified.';
