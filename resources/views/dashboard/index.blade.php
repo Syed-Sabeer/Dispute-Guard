@@ -4,15 +4,8 @@
 @include('billing.usage')
 <s-paragraph>Monitor disputes and help customers resolve their concerns.</s-paragraph>
 <s-section heading="Automation">
-@php($senders = app(\App\Services\Email\MerchantSenderService::class))
-@php($senderReady = $senders->managedConfigured())
-@if($shop->settings?->auto_email_enabled && $shop->settings?->onboarded_at && !config('chargeguard.test_mode') && !$shop->settings?->test_mode && $senderReady)
-<s-badge tone="success">Enabled</s-badge><s-paragraph>Eligible new disputes receive customer follow-ups after safety checks.</s-paragraph>
-@elseif($shop->settings?->auto_email_enabled)
-<s-badge>Automation temporarily paused</s-badge><s-paragraph>Customer emails are blocked until the required safety checks pass. Your automation preference is unchanged.</s-paragraph>
-@else
-<s-badge>Disabled</s-badge><s-paragraph>Automatic customer follow-ups are currently disabled.</s-paragraph>
-@endif
+<s-badge @if($automationState['label'] === 'Enabled') tone="success" @endif>{{ $automationState['label'] }}</s-badge>
+<s-paragraph>{{ $automationState['description'] }}</s-paragraph>
 <s-link href="/settings">Manage automation settings</s-link>
 <s-paragraph>Managed by Dispute Guard — no DNS setup required</s-paragraph>
 <s-link href="/settings/email-sender">Advanced: Custom sending domain</s-link>
