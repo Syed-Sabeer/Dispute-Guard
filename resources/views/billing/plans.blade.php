@@ -7,7 +7,7 @@
 </s-section>
 @endforeach
 </div>
-<s-paragraph>Managed by Dispute Guard — no merchant DNS setup required. Usage is independent for each store. Uncertain deliveries count; confirmed unsent cancellations do not. No automatic overage charges.</s-paragraph>
+<s-paragraph>Customer emails use your verified business email. Standard mailbox verification requires no DNS. Usage is independent for each store. Uncertain deliveries count; confirmed unsent cancellations do not. No automatic overage charges.</s-paragraph>
 @if(config('chargeguard.billing_enabled') && ($manageUrl ?? null))
 <s-button href="{{ $manageUrl }}" target="_top">Upgrade plan</s-button>
 @else

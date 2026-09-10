@@ -36,7 +36,7 @@ class ManagedSenderTest extends TestCase
         return AutomationDelivery::sole();
     }
 
-    public function test_managed_mail_uses_store_alias_reply_to_and_no_domain_api(): void
+    public function test_verified_merchant_mail_uses_store_alias_reply_to_and_no_domain_api(): void
     {
         $shop = $this->shop(['store_display_name' => 'My Store', 'reply_to_email' => 'help@merchant-mail.com']);
         $delivery = $this->queueFor($shop);
@@ -45,9 +45,9 @@ class ManagedSenderTest extends TestCase
         app()->call([$job, 'handle']);
         $this->assertSame('SENT', $delivery->fresh()->status);
         Http::assertSentCount(1);
-        Http::assertSent(fn ($r) => $r['From'] === '"My Store" <disputes@managed-domain.com>' && $r['ReplyTo'] === 'help@merchant-mail.com');
-        $this->assertDatabaseCount('merchant_email_senders', 0);
-        $this->assertDatabaseCount('email_sending_domains', 0);
+        Http::assertSent(fn ($r) => $r['From'] === '"My Store" <support@fixture-merchant.com>' && $r['ReplyTo'] === 'help@merchant-mail.com');
+        $this->assertDatabaseCount('merchant_email_senders', 1);
+        $this->assertDatabaseCount('email_sending_domains', 1);
     }
 
     public function test_names_are_tenant_specific_and_cannot_inject_headers(): void
@@ -57,15 +57,15 @@ class ManagedSenderTest extends TestCase
         $service = app(MerchantSenderService::class);
         $first = $service->identity($a);
         $second = $service->identity($b);
-        $this->assertSame('disputes@managed-domain.com', $first['email']);
-        $this->assertSame('disputes@managed-domain.com', $second['email']);
+        $this->assertSame('support@fixture-merchant.com', $first['email']);
+        $this->assertSame('support@fixture-merchant.com', $second['email']);
         $this->assertNotSame($first['name'], $second['name']);
         $this->assertDoesNotMatchRegularExpression('/[\r\n<>]/', $first['name']);
         $this->assertSame('Shop B', $second['name']);
         Http::assertNothingSent();
     }
 
-    public function test_managed_alias_changes_cancel_queued_identity(): void
+    public function test_store_alias_changes_cancel_queued_merchant_identity(): void
     {
         $shop = $this->shop();
         $delivery = $this->queueFor($shop);
@@ -75,14 +75,14 @@ class ManagedSenderTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_managed_address_changes_cancel_queued_identity(): void
+    public function test_system_address_changes_do_not_change_queued_merchant_identity(): void
     {
         $shop = $this->shop();
         $delivery = $this->queueFor($shop);
         config(['senders.managed_address' => 'new@managed-domain.com']);
         app()->call([new SendDisputeCustomerEmail($delivery->id), 'handle']);
-        $this->assertSame('CANCELLED', $delivery->fresh()->status);
-        Http::assertNothingSent();
+        $this->assertSame('SENT', $delivery->fresh()->status);
+        Http::assertSentCount(1);
     }
 
     public function test_reply_to_changes_cancel_queued_identity(): void
@@ -101,13 +101,13 @@ class ManagedSenderTest extends TestCase
         $service = app(MerchantSenderService::class);
         $this->assertFalse($service->managedConfigured());
         $this->expectException(EmailProviderException::class);
-        $service->identity($this->shop());
+        $service->systemIdentity();
     }
 
     public function test_no_dns_onboarding_and_activation_preserve_safety_mode(): void
     {
         $shop = $this->shop(['onboarded_at' => null, 'auto_email_enabled' => false]);
-        $this->merchant($shop)->get('/onboarding')->assertOk()->assertSee('no DNS setup required')->assertDontSee('Authenticate your sending domain');
+        $this->merchant($shop)->get('/onboarding')->assertOk()->assertSee('Customer emails are sent from your verified business email.')->assertDontSee('Authenticate your sending domain');
         $data = ['store_display_name' => 'Store', 'support_email' => 'support@merchant-mail.com', 'auto_email_enabled' => true,
             'test_mode' => false, 'timezone' => 'UTC', 'templates_reviewed' => true];
         config(['chargeguard.test_mode' => true]);
@@ -116,7 +116,7 @@ class ManagedSenderTest extends TestCase
         $this->putJson('/settings', $data)->assertOk();
         $this->assertNotNull($shop->settings()->first()->onboarded_at);
         $this->assertTrue($shop->settings()->first()->auto_email_enabled);
-        $this->get('/')->assertOk()->assertSee('Enabled')->assertSee('no DNS setup required');
+        $this->get('/')->assertOk()->assertSee('Enabled')->assertSee('Customer emails are sent from your verified business email.');
         Http::assertNothingSent();
     }
 

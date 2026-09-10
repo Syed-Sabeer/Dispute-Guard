@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\SenderMailboxVerificationController;
 use App\Http\Controllers\ShopifyAppController;
 use Illuminate\Support\Facades\Route;
 
@@ -15,3 +16,5 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/', [ShopifyAppController::class, 'home']);
+Route::get('/sender-verification', [SenderMailboxVerificationController::class, 'show'])->middleware('throttle:30,1');
+Route::post('/sender-verification', [SenderMailboxVerificationController::class, 'confirm'])->middleware('throttle:10,1');

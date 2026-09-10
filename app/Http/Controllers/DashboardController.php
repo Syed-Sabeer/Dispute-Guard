@@ -21,7 +21,8 @@ class DashboardController extends MerchantController
         $pauseReason = match (true) {
             (bool) config('chargeguard.test_mode'), (bool) $settings?->test_mode => 'Customer emails are blocked while test mode is enabled.',
             ! $settings?->onboarded_at => 'Complete onboarding to enable automatic follow-ups.',
-            ! app(MerchantSenderService::class)->managedConfigured() => 'Email delivery is unavailable. Please contact app support.',
+            ! $shop->emailSender()->exists() => 'Configure and verify your sender email before automatic customer follow-ups can be sent.',
+            ! app(MerchantSenderService::class)->eligible($shop) => 'Verify your sender email before automatic customer follow-ups can be sent.',
             ! $entitled => config('chargeguard.billing_enabled')
                 ? 'Subscription verification is required.'
                 : 'Automation is unavailable for this shop during private prelaunch.',

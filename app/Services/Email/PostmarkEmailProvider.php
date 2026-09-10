@@ -27,6 +27,12 @@ class PostmarkEmailProvider implements EmailProviderInterface
             throw new EmailProviderException('CONFIGURATION');
         }
         if (! $response->successful() || ! is_array($body) || ($body['ErrorCode'] ?? 0) !== 0) {
+            if (! $sending && $path === '/senders' && $method === 'POST' && ($body['ErrorCode'] ?? null) === 504) {
+                return ['already_exists' => true];
+            }
+            if (! $sending && str_ends_with($path, '/resend') && ($body['ErrorCode'] ?? null) === 506) {
+                return [];
+            }
             // A create conflict can be safely reconciled with the account's list.
             if (! $sending && $path === '/domains' && $method === 'POST' && ($body['ErrorCode'] ?? null) === 512) {
                 return ['already_exists' => true];
@@ -63,6 +69,66 @@ class PostmarkEmailProvider implements EmailProviderInterface
             }
         }
         throw new EmailProviderException('CONFIGURATION');
+    }
+
+    private function signature(array $data, string $email, ?int $id = null): array
+    {
+        if (! is_int($data['ID'] ?? null) || $data['ID'] <= 0 || ($id !== null && $data['ID'] !== $id)
+            || ! is_string($data['EmailAddress'] ?? null) || strtolower($data['EmailAddress']) !== $email
+            || ! is_bool($data['Confirmed'] ?? null)) {
+            throw new EmailProviderException('SENDER_NOT_VERIFIED');
+        }
+
+        return ['id' => $data['ID'], 'email' => $email, 'confirmed' => $data['Confirmed']];
+    }
+
+    public function createSenderSignature(string $email, string $name): array
+    {
+        $data = $this->request('POST', '/senders', ['FromEmail' => $email, 'Name' => $name,
+            'ConfirmationPersonalNote' => 'Confirm your business email for Dispute Guard customer follow-ups.']);
+
+        return isset($data['already_exists']) ? $this->findSenderSignatureByEmail($email)
+            : $this->signature($data, $email);
+    }
+
+    public function getSenderSignature(int $id, string $email): array
+    {
+        if ($id <= 0) {
+            throw new EmailProviderException('SENDER_NOT_VERIFIED');
+        }
+
+        return $this->signature($this->request('GET', '/senders/'.$id), $email, $id);
+    }
+
+    public function findSenderSignatureByEmail(string $email): array
+    {
+        for ($offset = 0; $offset < 5000; $offset += 500) {
+            $page = $this->request('GET', '/senders', ['count' => 500, 'offset' => $offset]);
+            if (! is_array($page['SenderSignatures'] ?? null) || ! is_int($page['TotalCount'] ?? null)) {
+                throw new EmailProviderException('CONFIGURATION');
+            }
+            foreach ($page['SenderSignatures'] as $item) {
+                if (is_string($item['EmailAddress'] ?? null) && strtolower($item['EmailAddress']) === $email) {
+                    if (! is_int($item['ID'] ?? null) || $item['ID'] <= 0) {
+                        throw new EmailProviderException('SENDER_NOT_VERIFIED');
+                    }
+
+                    return $this->getSenderSignature($item['ID'], $email);
+                }
+            }
+            if ($offset + 500 >= $page['TotalCount']) {
+                break;
+            }
+        }
+        throw new EmailProviderException('SENDER_NOT_VERIFIED');
+    }
+
+    public function resendSenderSignatureConfirmation(int $id, string $email): void
+    {
+        $signature = $this->getSenderSignature($id, $email);
+        if (! $signature['confirmed']) {
+            $this->request('POST', '/senders/'.$id.'/resend');
+        }
     }
 
     public function verifyDomain(int $id): array

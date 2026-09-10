@@ -6,7 +6,7 @@
 | Growth | $99 | 3,000 |
 | Pro | $149 | Up to 10,000 |
 
-`config/quotas.php` defines these limits and display prices. Each Shopify shop has independent usage even though delivery uses the pooled Postmark account. Managed sending remains the default with no merchant DNS requirement; custom domains remain optional under Advanced.
+`config/quotas.php` defines these limits and display prices. Each Shopify shop has independent usage even though delivery uses the pooled Postmark account. Standard verified merchant email is the default, using Postmark signatures and per-shop mailbox proof without DNS. Advanced domain authentication is optional. No managed sender fallback is permitted for customer or test automation.
 
 ## Billing-period authority
 
@@ -82,7 +82,7 @@ Resume the documented cron, including `chargeguard:maintain`. The additive migra
 
 ## Tests
 
-Coverage includes each plan limit, per-shop boundaries, atomic rollback, reservation release, SENT/UNKNOWN consumption, downgrade with in-flight usage, cycle reset, no historical replay, sender snapshot changes, privacy/uninstall, prelaunch assignment and legacy adoption. A separate two-process test races for the final slot in an isolated MySQL database and asserts one winner and one rejection. SQLite skips only that MySQL-specific test; the MySQL runner executes it. Existing Shopify, billing, managed/custom sender and shipping regression tests remain.
+Coverage includes each plan limit, per-shop boundaries, atomic rollback, reservation release, SENT/UNKNOWN consumption, downgrade with in-flight usage, cycle reset, no historical replay, sender snapshot changes, privacy/uninstall, prelaunch assignment and legacy adoption. A separate two-process test races for the final slot in an isolated MySQL database and asserts one winner and one rejection. SQLite skips only that MySQL-specific test; the MySQL runner executes it. Existing Shopify, billing, standard/advanced merchant sender and shipping regression tests remain.
 
 Existing documented Laravel security advisories remain a public-launch blocker independent of this feature. Live Shopify period responses, configured prices and Postmark delivery still require controlled production verification.
 

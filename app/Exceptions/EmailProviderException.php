@@ -8,7 +8,7 @@ class EmailProviderException extends \RuntimeException
     {
         parent::__construct(match ($category) {
             'QUOTA_UNAVAILABLE' => 'The reserved follow-up is no longer eligible under the current billing period or safety checks. No email was sent; manual review required.',
-            'SENDER_NOT_VERIFIED' => 'Merchant sending domain is not verified. Configure your email sender before activating customer emails.',
+            'SENDER_NOT_VERIFIED' => 'Verify your sender email before automatic customer follow-ups can be sent.',
             'CONFIGURATION' => 'Email delivery is not configured. Please contact app support.',
             'DEFINITE_REJECTION' => 'The email provider rejected this operation. Review the sender and recipient settings.',
             'DELIVERY_OUTCOME_UNKNOWN' => 'Email delivery outcome is uncertain. Automatic retry is suppressed; contact app support.',

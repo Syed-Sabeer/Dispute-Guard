@@ -2,6 +2,8 @@
 
 Embedded Shopify Payments dispute automation, built inside the existing **Laravel 10** project.
 
+Customer and Test Automation emails require the merchant's exact verified business email. Standard Postmark Sender Signature verification requires mailbox ownership for each shop and no DNS; advanced domain authentication remains optional. Application-owned sending is only for verification/system operations. See [merchant sender setup and safe deployment](docs/MANAGED_SENDING.md).
+
 ChargeGuard detects new Shopify Payments disputes, retrieves the associated order through GraphQL, classifies shipment state, selects a merchant template, and queues one transactional customer email when eligible. Merchants can review disputes, edit 20 templates, test messages, inspect masked logs, manage billing/settings, and fulfill privacy requests.
 
 V1 does not support external gateways, submit evidence, accept disputes, contact banks, or send automatic follow-up sequences.
@@ -11,12 +13,12 @@ V1 does not support external gateways, submit evidence, accept disputes, contact
 Implementation inventory, verification results, and the requested delivery checklist: [DELIVERY.md](docs/DELIVERY.md).
 
 - Laravel **10.50.3**, retained on 10.x; **PHP 8.2+**.
-- MySQL, Laravel database queues, Scheduler, Mail with SMTP.
+- MySQL, Laravel database queues, Scheduler, Laravel Mail with Postmark API transport.
 - Official **shopify/shopify-app-php v1.0.2**, with firebase/php-jwt v7.1.0 transitively.
 - Shopify GraphQL Admin API **2026-07**, Partner API for App Pricing verification.
 - Blade, Shopify App Bridge, current Polaris web components, vanilla JavaScript.
 - PHPUnit, PDO SQLite for fast isolated tests; optional isolated MySQL tests.
-- Composer, SSL, outbound HTTPS and SMTP, writable private storage and bootstrap/cache.
+- Composer, SSL, outbound HTTPS, writable private storage and bootstrap/cache.
 
 Enable PDO MySQL, cURL, mbstring, openssl, fileinfo, tokenizer, ctype, XML/DOM, and standard Laravel extensions.
 
@@ -75,12 +77,12 @@ npm run build
 | CHARGEGUARD_TEST_MODE | Global automatic-email block, default true |
 | CHARGEGUARD_DEMO_MODE | Local loopback-only read-only demo, default false |
 | CHARGEGUARD_RETENTION_DAYS | Sensitive content retention, default 90 days |
-| MAIL_MAILER, MAIL_HOST, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD, MAIL_ENCRYPTION | SMTP provider |
-| MAIL_FROM_ADDRESS, MAIL_FROM_NAME | Authenticated application sending domain |
+| MAIL_MAILER=postmark, POSTMARK_SERVER_TOKEN, POSTMARK_ACCOUNT_TOKEN | Postmark transport and sender management |
+| MANAGED_SENDER_ADDRESS, MANAGED_SENDER_DOMAIN, MAIL_FROM_ADDRESS, MAIL_FROM_NAME | Application sender for mailbox verification/system diagnostics only |
 
 APP_URL is the origin, such as https://app.example.com, without /dashboard. Shopify application_url includes /dashboard.
 
-Production requires APP_ENV=production, APP_DEBUG=false, HTTPS, CHARGEGUARD_TEST_MODE=false, BILLING_ENFORCED=true, SMTP and Partner credentials. Shop-level automation additionally defaults off and merchant test mode defaults on.
+Controlled production validation requires APP_ENV=production, APP_DEBUG=false, HTTPS, CHARGEGUARD_TEST_MODE=true, BILLING_ENABLED=false, DISPUTEGUARD_PRELAUNCH=true, an exact shop allowlist and both Postmark tokens. Shop automation defaults off. Live/billing launch requires a separate operator decision after validation.
 
 ## Shopify CLI and development store
 
@@ -113,7 +115,7 @@ Full Partner/developer account, public app, dev store, callback, pricing, and ap
 
 ## Onboarding and template behavior
 
-Open /onboarding. Confirm connection, set store/support/reply-to details, review all 20 templates, successfully send a test email, verify a plan, disable merchant test mode, and explicitly activate automation.
+Open /onboarding. Confirm connection, set store/sender/support/reply-to details, verify the merchant sender and review all 20 templates. Test mail is optional and requires that same verified sender. Keep global safety mode enabled during controlled validation. Later activation remains explicit and subject to delivery pause, subscription/prelaunch and quota checks.
 
 Reasons: PRODUCT_NOT_RECEIVED, PRODUCT_UNACCEPTABLE, FRAUDULENT, CREDIT_NOT_PROCESSED.
 
@@ -129,7 +131,7 @@ This creates missing combinations without overwriting merchant edits.
 
 ## Mail and sample automation
 
-From is your application's authenticated sending domain; merchant support is Reply-To. Configure SMTP privately with a provider such as Postmark, SES, or another SMTP-compatible service. Authenticate DNS records with that provider. Do not spoof arbitrary merchant From domains.
+From is the merchant's exact verified business email with the store display name. Reply-To uses the merchant reply-to, support, then the same verified sender email. Configure Postmark Account and Server tokens privately. Standard mailbox verification needs no DNS; advanced domain authentication remains optional. Neither live automation nor Test Automation may use an application sender fallback.
 
 For local sample data:
 

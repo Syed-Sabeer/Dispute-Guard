@@ -58,8 +58,8 @@ class AutomationResolver
         if (! $template) {
             return 'Matching template is disabled or missing.';
         }
-        if (! app(MerchantSenderService::class)->managedConfigured()) {
-            return 'Email delivery is not configured. Please contact app support.';
+        if (! app(MerchantSenderService::class)->eligible($shop)) {
+            return 'Verify your sender email before automatic customer follow-ups can be sent.';
         }
         if (! app(BillingServiceInterface::class)->entitled($shop)) {
             return 'Active subscription could not be verified.';

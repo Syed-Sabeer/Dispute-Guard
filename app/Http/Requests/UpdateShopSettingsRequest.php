@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
+use App\Services\CurrentShop;
+use App\Services\Email\MerchantSenderService;
+
 class UpdateShopSettingsRequest extends MerchantRequest
 {
     public function rules(): array
@@ -23,6 +26,9 @@ class UpdateShopSettingsRequest extends MerchantRequest
             }
             if ($this->boolean('test_mode') || config('chargeguard.test_mode')) {
                 $v->errors()->add('auto_email_enabled', 'Turn off test mode before activating production automation.');
+            }
+            if (! app(MerchantSenderService::class)->eligible(app(CurrentShop::class)->get())) {
+                $v->errors()->add('auto_email_enabled', 'Verify your sender email before activating automatic customer follow-ups.');
             }
         });
     }

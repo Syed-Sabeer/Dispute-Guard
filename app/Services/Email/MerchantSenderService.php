@@ -7,6 +7,7 @@ use App\Models\EmailSendingDomain;
 use App\Models\MerchantEmailSender;
 use App\Models\Shop;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class MerchantSenderService
@@ -35,27 +36,43 @@ class MerchantSenderService
         return Cache::lock('merchant-sender-'.$shop->id, 120)->block(2, $callback);
     }
 
-    public function save(Shop $shop, string $name, string $email): MerchantEmailSender
+    public function save(Shop $shop, string $name, string $email, string $mode = 'SIGNATURE'): MerchantEmailSender
     {
         $email = self::normalize($email);
         if (! trim($name) || mb_strlen($name) > 100 || preg_match('/[\p{C}<>]/u', $name)) {
             throw ValidationException::withMessages(['sender_name' => 'Enter a sender name without control characters or markup.']);
         }
 
-        return $this->locked($shop, function () use ($shop, $name, $email) {
+        if (! in_array($mode, ['SIGNATURE', 'DOMAIN'], true)) {
+            throw ValidationException::withMessages(['sender_mode' => 'Choose standard email verification or advanced domain authentication.']);
+        }
+
+        return $this->locked($shop, function () use ($shop, $name, $email, $mode) {
             abort_unless($shop->fresh()->active(), 403);
             $domainName = substr(strrchr($email, '@'), 1);
             $domain = EmailSendingDomain::firstOrCreate(['domain' => $domainName]);
             $sender = $shop->emailSender()->first();
-            $sameDomain = $sender && $sender->email_sending_domain_id === $domain->id && $sender->verification_status !== 'REMOVED';
-            $values = ['sender_name' => trim($name), 'sender_email' => $email, 'email_sending_domain_id' => $domain->id, 'revision' => ($sender?->revision ?? 0) + 1];
+            $sameDomain = $sender && $sender->sender_mode === $mode && $sender->sender_email === $email && $sender->email_sending_domain_id === $domain->id && $sender->verification_status !== 'REMOVED';
+            $values = ['sender_mode' => $mode, 'sender_name' => trim($name), 'sender_email' => $email, 'email_sending_domain_id' => $domain->id, 'revision' => ($sender?->revision ?? 0) + 1,
+                'verification_token_hash' => null, 'verification_expires_at' => null];
             if (! $sameDomain) {
                 $values += ['verification_status' => 'PENDING', 'dkim_verified' => false, 'return_path_verified' => false, 'ownership_verified' => false,
+                    'provider_signature_id' => null, 'provider_confirmed_at' => null,
                     'last_checked_at' => null, 'verified_at' => null, 'verification_refresh_failed_at' => null, 'ownership_host' => '_disputeguard-'.bin2hex(random_bytes(8)).'.'.$domainName,
                     'ownership_value' => 'disputeguard-verification='.bin2hex(random_bytes(24))];
             }
             // Invalidate the previous From before any provider request can fail.
             $sender = $shop->emailSender()->updateOrCreate([], $values);
+            if ($mode === 'SIGNATURE') {
+                if (! $sender->provider_signature_id) {
+                    $signature = $this->provider->createSenderSignature($email, $name);
+                    $this->validateSignature($signature, $email);
+                    // Even a newly created, already confirmed signature needs this shop's mailbox proof.
+                    $sender->update(['provider_signature_id' => $signature['id']]);
+                }
+
+                return $sender->fresh('sendingDomain');
+            }
             Cache::lock('sending-domain-'.$domain->id, 120)->block(2, function () use ($domain) {
                 $domain->refresh();
                 if (! $domain->provider_domain_id) {
@@ -90,6 +107,9 @@ class MerchantSenderService
         abort_unless($shop->fresh()->active(), 403);
         $sender = $shop->emailSender()->with('sendingDomain')->firstOrFail();
         abort_if($sender->verification_status === 'REMOVED', 422, 'Save your email sender before checking verification.');
+        if ($sender->sender_mode === 'SIGNATURE') {
+            return $this->refreshSignature($sender);
+        }
         try {
             $domain = $sender->sendingDomain;
             if (! $domain->provider_domain_id) {
@@ -134,7 +154,7 @@ class MerchantSenderService
     {
         $sender = $shop->emailSender()->with('sendingDomain')->first();
         if (! $shop->active() || ! $sender || $sender->verification_status !== 'VERIFIED'
-            || ! $sender->dkim_verified || ! $sender->return_path_verified || ! $sender->ownership_verified || ! $sender->sendingDomain) {
+            || ! $sender->ownership_verified || ! $sender->sendingDomain) {
             return false;
         }
         try {
@@ -146,7 +166,12 @@ class MerchantSenderService
             return false;
         }
 
-        return substr(strrchr($email, '@'), 1) === $sender->sendingDomain->domain && (bool) $sender->sendingDomain->provider_domain_id;
+        if ($sender->sender_mode === 'SIGNATURE') {
+            return $sender->provider_signature_id > 0 && $sender->provider_confirmed_at !== null;
+        }
+
+        return $sender->sender_mode === 'DOMAIN' && $sender->dkim_verified && $sender->return_path_verified
+            && substr(strrchr($email, '@'), 1) === $sender->sendingDomain->domain && (bool) $sender->sendingDomain->provider_domain_id;
     }
 
     public function isVerificationFresh(Shop $shop): bool
@@ -186,7 +211,7 @@ class MerchantSenderService
 
     public function identityKey(Shop $shop, array $identity): string
     {
-        return hash('sha256', json_encode(['managed-first-v1', $shop->id, $identity]));
+        return hash('sha256', json_encode(['merchant-only-v2', $shop->id, $identity]));
     }
 
     public function managedAddress(): string
@@ -233,27 +258,135 @@ class MerchantSenderService
 
     public function identity(Shop $shop, bool $test = false, bool $refresh = true): array
     {
+        // Kept for old callers; neither boolean permits an application sender fallback.
+        return $this->merchantIdentity($shop, $refresh);
+    }
+
+    public function merchantIdentity(Shop $shop, bool $refresh = true): array
+    {
+        if (app()->environment('production') && (! $this->configured() || config('services.postmark.token') === 'POSTMARK_API_TEST')) {
+            throw new EmailProviderException('CONFIGURATION');
+        }
         $sender = $shop->emailSender()->first();
         if ($refresh && $sender && $sender->verification_status !== 'REMOVED' && ($sender->verification_refresh_failed_at || ! $sender->last_checked_at || $sender->last_checked_at->lt(now()->subMinutes(config('senders.verification_ttl_minutes'))))) {
             try {
                 $this->check($shop);
             } catch (EmailProviderException $e) {
-                // A new message may use managed sending. Queued snapshots forbid switching.
+                throw new EmailProviderException('SENDER_NOT_VERIFIED');
             }
         }
-        if ($this->configured() && $this->ready($shop)) {
-            $sender = $shop->emailSender()->first();
-
-            return $this->withReplyTo($shop, ['email' => $sender->sender_email, 'name' => $sender->sender_name, 'revision' => $sender->revision, 'id' => $sender->id]);
+        if (! $this->ready($shop)) {
+            throw new EmailProviderException('SENDER_NOT_VERIFIED');
         }
+        $sender = $shop->emailSender()->first();
+        $name = $shop->settings()->first()?->store_display_name ?: $shop->store_name;
+        // These addresses are reserved for system verification/diagnostics, even if saved as a merchant sender.
+        if (in_array(strtolower($sender->sender_email), array_map(fn ($email) => strtolower((string) $email),
+            [config('senders.managed_address'), config('mail.from.address')]), true)) {
+            throw new EmailProviderException('SENDER_NOT_VERIFIED');
+        }
+        $name = trim(preg_replace('/[\p{C}<>]+/u', ' ', (string) $name) ?? '');
+        $name = mb_substr($name, 0, 100) ?: $sender->sender_name;
+
+        return $this->withReplyTo($shop, ['email' => $sender->sender_email, 'name' => $name, 'revision' => $sender->revision, 'id' => $sender->id]);
+    }
+
+    public function systemIdentity(): array
+    {
         if (! $this->managedConfigured()) {
             throw new EmailProviderException('CONFIGURATION');
         }
-        $name = $shop->settings()->first()?->store_display_name ?: $shop->store_name;
-        $name = trim(preg_replace('/[\p{C}<>]+/u', ' ', (string) $name) ?? '');
-        $name = mb_substr($name, 0, 100) ?: 'Dispute Guard';
 
-        return $this->withReplyTo($shop, ['email' => $this->managedAddress(), 'name' => $name, 'revision' => null, 'id' => null]);
+        return ['email' => $this->managedAddress(), 'name' => 'Dispute Guard'];
+    }
+
+    public function eligible(Shop $shop): bool
+    {
+        try {
+            $this->merchantIdentity($shop);
+
+            return true;
+        } catch (EmailProviderException) {
+            return false;
+        }
+    }
+
+    private function validateSignature(array $signature, string $email, ?int $id = null): void
+    {
+        if (! is_int($signature['id'] ?? null) || $signature['id'] <= 0 || ($id !== null && $signature['id'] !== $id)
+            || ($signature['email'] ?? null) !== $email || ! is_bool($signature['confirmed'] ?? null)) {
+            throw new EmailProviderException('SENDER_NOT_VERIFIED');
+        }
+    }
+
+    private function refreshSignature(MerchantEmailSender $sender): MerchantEmailSender
+    {
+        try {
+            $signature = $this->provider->getSenderSignature((int) $sender->provider_signature_id, $sender->sender_email);
+            $this->validateSignature($signature, $sender->sender_email, $sender->provider_signature_id);
+            $verified = $signature['confirmed'] && $sender->ownership_verified;
+            $sender->update(['provider_confirmed_at' => $signature['confirmed'] ? now() : null,
+                'verification_status' => $verified ? 'VERIFIED' : 'PENDING', 'verified_at' => $verified ? now() : null,
+                'last_checked_at' => now(), 'verification_refresh_failed_at' => null]);
+        } catch (EmailProviderException $e) {
+            $sender->update(['verification_status' => 'PENDING', 'verified_at' => null,
+                'provider_confirmed_at' => null, 'verification_refresh_failed_at' => now()]);
+            throw $e;
+        }
+
+        return $sender->fresh('sendingDomain');
+    }
+
+    public function sendMailboxVerification(Shop $shop): void
+    {
+        $this->locked($shop, function () use ($shop) {
+            abort_unless($shop->fresh()->active(), 403);
+            $sender = $shop->emailSender()->firstOrFail();
+            abort_unless($sender->sender_mode === 'SIGNATURE' && $sender->verification_status !== 'REMOVED', 422, 'Save a standard email sender first.');
+            abort_if($sender->verification_sent_at?->gt(now()->subMinute()), 429, 'Wait a minute before requesting another verification email.');
+            $sender->update(['verification_sent_at' => now()]);
+            $system = $this->systemIdentity();
+            $signature = $this->provider->getSenderSignature((int) $sender->provider_signature_id, $sender->sender_email);
+            $this->validateSignature($signature, $sender->sender_email, $sender->provider_signature_id);
+            if (! $signature['confirmed']) {
+                $this->provider->resendSenderSignatureConfirmation($signature['id'], $sender->sender_email);
+            }
+            $token = bin2hex(random_bytes(32));
+            $sender->update(['verification_token_hash' => hash('sha256', $token), 'verification_expires_at' => now()->addMinutes(15)]);
+            // Fragment keeps the bearer token out of web access logs and HTTP referrers.
+            $url = rtrim(config('app.url'), '/').'/sender-verification#'.$token;
+            if (app()->environment('production') && ! str_starts_with($url, 'https://')) {
+                throw new EmailProviderException('CONFIGURATION');
+            }
+            $this->provider->send(['From' => $system['name'].' <'.$system['email'].'>', 'To' => $sender->sender_email,
+                'Subject' => 'Verify your Dispute Guard sender mailbox',
+                'TextBody' => 'Confirm that this mailbox may send customer follow-ups for Shopify store '.$shop->shop_domain.'. Only confirm if you manage this store. This link expires in 15 minutes: '.$url]);
+        });
+    }
+
+    public function confirmMailbox(string $token): bool
+    {
+        if (! preg_match('/\A[a-f0-9]{64}\z/D', $token)) {
+            return false;
+        }
+        $hash = hash('sha256', $token);
+        $sender = MerchantEmailSender::where('verification_token_hash', $hash)->first();
+        if (! $sender || ! $sender->shop) {
+            return false;
+        }
+
+        return $this->locked($sender->shop, fn () => DB::transaction(function () use ($sender, $hash) {
+            $current = MerchantEmailSender::whereKey($sender->id)->lockForUpdate()->first();
+            if (! $current || ! $current->shop->active() || $current->sender_mode !== 'SIGNATURE'
+                || $current->verification_status === 'REMOVED' || ! hash_equals($hash, (string) $current->verification_token_hash)
+                || ! $current->verification_expires_at || $current->verification_expires_at->lte(now())) {
+                return false;
+            }
+            $current->update(['ownership_verified' => true, 'verification_token_hash' => null,
+                'verification_expires_at' => null, 'last_checked_at' => null]);
+
+            return true;
+        }));
     }
 
     public function guard(Shop $shop, array $identity, bool $test, callable $send): mixed
@@ -274,7 +407,8 @@ class MerchantSenderService
     public function disconnect(Shop $shop): void
     {
         $this->locked($shop, function () use ($shop) {
-            $shop->emailSender()->update(['verification_status' => 'REMOVED', 'verified_at' => null, 'dkim_verified' => false, 'return_path_verified' => false, 'ownership_verified' => false]);
+            $shop->emailSender()->update(['verification_status' => 'REMOVED', 'verified_at' => null, 'dkim_verified' => false, 'return_path_verified' => false, 'ownership_verified' => false,
+                'verification_token_hash' => null, 'verification_expires_at' => null, 'provider_confirmed_at' => null]);
         });
     }
 }

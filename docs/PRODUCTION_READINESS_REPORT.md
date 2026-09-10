@@ -1,6 +1,8 @@
+Current sender-signature release: SQLite 239 passed, 2 MySQL-only skips (1,310 assertions); isolated MySQL 241 passed (1,324 assertions), including quota concurrency and partial-migration recovery. Full Pint and config/route/view cache checks passed. See [release file inventory and deployment](SENDER_SIGNATURE_RELEASE.md). Production deployment and controlled mailbox/provider validation remain operator tasks; no production environment or data was changed.
+
 Subscription plan limits, period assignment and quota rollout: [Per-shop quotas](SUBSCRIPTION_QUOTAS.md). Keep customer test mode enabled and billing disabled during controlled validation.
 
-Current sender architecture and validation procedure: [Managed sending](MANAGED_SENDING.md). Merchant DNS is optional.
+Current sender architecture and validation procedure: [Verified merchant sending](MANAGED_SENDING.md). Standard mailbox verification needs no DNS; customer and test automation have no application sender fallback.
 
 # Dispute Guard production readiness report
 
@@ -17,7 +19,7 @@ Current sender architecture and validation procedure: [Managed sending](MANAGED_
 
 Dispute Guard branding replaces the legacy default, including sender display name. Internal class/config/table names remain. Dashboard recent disputes and metrics use real Shopify records; production list/detail access excludes demo/synthetic records. Currency risk totals remain separated. Production navigation hides disabled billing/test tools. Empty states no longer request test data. Template preview uses labelled fields rather than a fake customer/order in production.
 
-The dashboard shows automation state without a TEST MODE banner; global and merchant delivery pauses still prevent sending. Settings warns before activation. Onboarding completes when validated support details and reviewed templates are saved, without enabling automation or requiring test mail. Production test endpoints are 404 unless explicitly enabled; queued test mail is cancelled when disabled. Explicitly enabled test tools permit inspection of their labelled email logs.
+The dashboard shows automation state without a TEST MODE banner; global and merchant delivery pauses still prevent sending. Settings warns before activation. Onboarding completes when a verified merchant sender, validated support details and reviewed templates are saved, without enabling automation or requiring test mail. Production test endpoints are 404 unless explicitly enabled; queued test mail is cancelled when disabled. Explicitly enabled test tools permit inspection of their labelled email logs.
 
 Billing implementation remains intact. Private prelaunch skips Partner lookups only for explicitly allowlisted shops. Other shops fail closed. Normal billing restores strict subscription enforcement. Existing Shopify verification, privacy, encryption, rendering sanitization, sender/Reply-To separation, deduplication, stale-state and email provider uncertainty safeguards remain.
 
@@ -27,11 +29,11 @@ Exception reporting logs class/file/line rather than potentially sensitive messa
 
 New: `BILLING_ENABLED`, `DISPUTEGUARD_PRELAUNCH`, `DISPUTEGUARD_PRELAUNCH_SHOPS`, `DISPUTEGUARD_ENABLE_TEST_TOOLS`. Code defaults are billing on, prelaunch off, empty allowlist, tools enabled only in local/development/testing when unset.
 
-For this private deployment use billing false, prelaunch true, an exact invited-shop allowlist, test tools false, demo false, APP_ENV production, APP_DEBUG false, permanent HTTPS APP_URL, database queue and secure SameSite=None cookies. Configure real DB/Shopify/email provider credentials and authenticated sender. Keep the global email safety switch true during setup; set false only when ready. The full copyable configuration is in [Production deployment](PRODUCTION_DEPLOYMENT.md#configuration) and `.env.example`.
+For this private deployment use billing false, prelaunch true, an exact invited-shop allowlist, test tools false, demo false, APP_ENV production, APP_DEBUG false, permanent HTTPS APP_URL, database queue and secure SameSite=None cookies. Configure real DB/Shopify/email provider credentials and authenticated sender. Keep the global email safety switch true throughout current controlled validation. The full copyable configuration is in [Production deployment](PRODUCTION_DEPLOYMENT.md#configuration) and `.env.example`.
 
 ## E. Database
 
-No migrations or indexes added. Existing shop-domain uniqueness, tenant/dispute uniqueness, status/date lookup indexes, webhook ID uniqueness, email log indexes and delivery deduplication constraints were retained. No data was deleted or seeded.
+One additive migration adds sender-signature and mailbox proof fields: 2026_09_12_000001_add_merchant_sender_signatures.php. Existing DOMAIN senders retain their mode. No old applied migration is modified. Existing shop-domain uniqueness, tenant/dispute uniqueness, status/date lookup indexes, webhook ID uniqueness, email log indexes and delivery deduplication constraints were retained. No data was deleted or seeded.
 
 ## F. Shopify configuration
 
@@ -60,7 +62,7 @@ Generate APP_KEY only for a new empty installation, never an update. Public stor
 
 Existing per-job preparation retry limits override the worker default; no uncertain email provider delivery is retried automatically. See the deployment guide for optional flock, runtime limits, monitoring and rollback.
 
-## I. Verification
+## I. Verification (earlier hardening release)
 
 - Full `php artisan test`: **99 passed, 471 assertions** (88 existing plus 11 production regression tests).
 - Pint changed-file checks: pass.
@@ -78,4 +80,4 @@ Configure real Shopify App Pricing plans/items and Partner credentials/handles. 
 
 ## M. Live customer automation
 
-After operational validation, set CHARGEGUARD_TEST_MODE=false, cache config/restart workers, leave demo/test tools false. Each merchant confirms support/Reply-To and templates, turns off its delivery pause, and explicitly activates automatic emails. No install or deployment script enables automation. Only eligible new disputes can send; unknown, unsupported, stale, duplicate, inactive, paused or redacted cases stay blocked.
+This release keeps CHARGEGUARD_TEST_MODE=true. Live activation requires a separate operator decision after controlled validation; it is not part of these deployment commands. Each merchant verifies its exact sender email and confirms support/Reply-To and templates, turns off its delivery pause, and explicitly activates automatic emails. No install or deployment script enables automation. Only eligible new disputes can send; unknown, unsupported, stale, duplicate, inactive, paused or redacted cases stay blocked.

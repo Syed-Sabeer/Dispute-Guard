@@ -1,10 +1,11 @@
 @extends('layouts.app')
 @section('title','Set up '.config('chargeguard.name'))
 @section('content')
-<s-paragraph>Managed by Dispute Guard — no DNS setup required</s-paragraph>
+<s-paragraph>Customer emails are sent from your verified business email.</s-paragraph>
 <s-section heading="Your setup checklist"><table><tbody>
 <tr><td>Connected to Shopify</td><td><s-badge tone="success">Connected</s-badge></td></tr>
 <tr><td><s-link href="/settings">Configure support and reply-to email</s-link></td><td>{{ $settings->support_email ? 'Ready' : 'To do' }}</td></tr>
+<tr><td><s-link href="/settings/email-sender">Sender email</s-link></td><td>{{ $senderReady ? 'Verified' : 'To do' }}</td></tr>
 <tr><td><s-link href="/templates">Review all 20 automation templates</s-link></td><td>{{ $settings->templates_reviewed_at ? 'Reviewed' : 'To do' }}</td></tr>
 @if(\App\Services\DeploymentMode::testTools())<tr><td><s-link href="/test-automation">Send an optional test email</s-link></td><td>{{ $testSent ? 'Sent' : 'Optional' }}</td></tr>@endif
 @if(config('chargeguard.billing_enabled'))<tr><td><s-link href="/billing">Choose or verify a billing plan</s-link></td><td>{{ $shop->billing_status }}</td></tr>@endif

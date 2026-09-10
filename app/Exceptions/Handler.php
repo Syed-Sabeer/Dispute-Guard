@@ -20,6 +20,7 @@ class Handler extends ExceptionHandler
         'id_token',
         'session',
         'hmac',
+        'token',
     ];
 
     /**

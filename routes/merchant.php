@@ -20,6 +20,7 @@ Route::middleware([AuthenticateShopify::class, EmbeddedCsrf::class, 'throttle:me
     Route::get('/settings/email-sender', [EmailSenderController::class, 'index']);
     Route::put('/settings/email-sender', [EmailSenderController::class, 'save'])->middleware(['throttle:sender-domain', 'throttle:sender-create']);
     Route::post('/settings/email-sender/verify', [EmailSenderController::class, 'verify'])->middleware('throttle:sender-domain');
+    Route::post('/settings/email-sender/resend', [EmailSenderController::class, 'resend'])->middleware(['throttle:sender-domain', 'throttle:sender-create']);
     Route::post('/settings/email-sender/disconnect', [EmailSenderController::class, 'disconnect'])->middleware('throttle:sender-domain');
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
     Route::get('/onboarding', [SettingsController::class, 'onboarding']);

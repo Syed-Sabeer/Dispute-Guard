@@ -4,16 +4,23 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Exceptions\EmailProviderException;
 use App\Models\EmailLog;
 use App\Models\EmailTemplate;
 use App\Services\DeploymentMode;
 use App\Services\Email\EmailComposer;
+use App\Services\Email\MerchantSenderService;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Mail;
 
 class SendTestAutomationEmail extends QueuedJob
 {
-    public function __construct(public int $logId, public string $encryptedInput) {}
+    public ?string $senderIdentityHash = null;
+
+    public function __construct(public int $logId, public string $encryptedInput, ?string $senderIdentityHash = null)
+    {
+        $this->senderIdentityHash = $senderIdentityHash;
+    }
 
     public function handle(EmailComposer $composer): void
     {
@@ -36,8 +43,15 @@ class SendTestAutomationEmail extends QueuedJob
         $input = json_decode(Crypt::decryptString($this->encryptedInput), true, flags: JSON_THROW_ON_ERROR);
         try {
             $message = $composer->compose($shop, $template, $input, true);
-        } catch (\App\Exceptions\EmailProviderException $e) {
+            if (! $this->senderIdentityHash || ! hash_equals($this->senderIdentityHash,
+                app(MerchantSenderService::class)->identityKey($shop, $message['identity']))) {
+                $log->update(['status' => 'CANCELLED', 'error_message' => 'Sender identity changed while queued. Verify your sender and submit a new test.']);
+
+                return;
+            }
+        } catch (EmailProviderException $e) {
             $log->update(['status' => 'FAILED', 'error_message' => $e->getMessage()]);
+
             return;
         }
         if (! EmailLog::whereKey($log->id)->where('status', 'QUEUED')->update(['status' => 'SENDING'])) {
@@ -50,7 +64,7 @@ class SendTestAutomationEmail extends QueuedJob
 
                 return;
             }
-            $sent = app(\App\Services\Email\MerchantSenderService::class)->guard($shop, $message['identity'], true, fn () => Mail::to($input['customer_email'])->send($message['mailable']));
+            $sent = app(MerchantSenderService::class)->guard($shop, $message['identity'], true, fn () => Mail::to($input['customer_email'])->send($message['mailable']));
             $log->update(['status' => 'SENT', 'sent_at' => now(), 'subject' => $message['subject'], 'rendered_body' => $message['body'],
                 'provider_message_id' => config('mail.default') === 'postmark' ? $sent?->getMessageId() : null]);
         } catch (\Throwable) {

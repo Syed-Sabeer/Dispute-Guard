@@ -1,79 +1,94 @@
-Subscription plan limits, period assignment and quota rollout: [Per-shop quotas](SUBSCRIPTION_QUOTAS.md). Keep customer test mode enabled and billing disabled during controlled validation.
+# Merchant email sending (current architecture)
 
-# Managed sending (current production architecture)
+The filename is retained for existing links. This document supersedes the former managed-sender-first architecture.
 
-Dispute Guard sends normal dispute emails without merchant DNS setup. Postmark remains the delivery provider. The operator authenticates a Dispute Guard-owned domain once; merchants configure their store display name and support/Reply-To address, review templates and enable automation. Advanced custom sending domains are optional.
+## Standard: exact merchant email, no DNS
 
-## Configuration
+Customer follow-ups and Test Automation always use the current shop's verified business email. There is no application-owned From fallback for either path.
 
-```dotenv
-MAIL_MAILER=postmark
-MANAGED_SENDER_ADDRESS=disputeguard@deveoninc.com
-MANAGED_SENDER_DOMAIN=deveoninc.com
-MAIL_FROM_NAME="Dispute Guard"
-POSTMARK_SERVER_TOKEN=
-# Optional: only needed for Advanced custom-domain management
-POSTMARK_ACCOUNT_TOKEN=
-CHARGEGUARD_TEST_MODE=true
-DISPUTEGUARD_ENABLE_TEST_TOOLS=false
-```
+1. In Settings, confirm the store display name, sender email, support email and Reply-To.
+2. Save the sender with Standard email verification. This creates a Postmark Sender Signature and initiates its confirmation process. Saving is not verification.
+3. Select Send verification email. Complete both Postmark confirmation and the Dispute Guard mailbox ownership link.
+4. The Dispute Guard message identifies the Shopify store being authorized. Confirm only if you manage that store.
+5. Return to Shopify and select Check verification. The provider ID and exact normalized email must match, Postmark must report Confirmed=true, and this shop must have proven mailbox ownership.
+6. Only then may Test Automation send or Settings activate automatic follow-ups. Test tools, global/merchant pauses, templates, billing and quota restrictions still apply.
 
-The address above comes from the supplied local production configuration, not an application-code constant. Authenticate that sender/domain in Postmark before live use. Configuration validation checks a single valid address, a DNS hostname and exact address-domain match; production also requires Postmark and a non-test server token. A configuration check does not prove live provider authentication or delivery.
+Fresh shop-specific mailbox proof is required for both newly created and reused Postmark signatures. Account-level confirmation never transfers ownership between shops. Provider IDs come from the server, never merchant requests. Reconciliation uses exact email matching and at most ten pages of 500 signatures; malformed or missing data fails closed.
 
-If the new managed fields are absent, existing operator-controlled `MAIL_FROM_ADDRESS` supplies the address and its domain for compatibility. Empty explicit fields fail validation. `MERCHANT_SENDER_REQUIRED` is retired and ignored; it cannot restore mandatory merchant DNS. `.env.example` leaves managed fields empty for operator setup. The supplied `productionenv.md` was updated locally with its existing sender address/domain and remains excluded from Git along with `productionenv.env`. Credentials are preserved. The runtime `.env` was not overwritten.
+Mailbox links use a random 256-bit token. Only its SHA-256 hash is stored, it expires in 15 minutes, and it is consumed once under a sender lock and database transaction. Saving invalidates outstanding tokens. Email/mode changes clear ownership and provider confirmation and increment the revision. Disconnect/uninstall blocks verification. Resending is limited by per-shop route limits and a persisted one-minute cooldown; it rotates the token.
 
-## Sender selection
+The public verification page needs no Shopify authentication. The token travels in the URL fragment, outside the HTTP request/access log, is removed from browser history on loading, and is submitted by an explicit CSRF-protected confirmation form. Responses use no-store/no-referrer. A link is a bearer credential: do not share it. Never enable request-body tracing for these endpoints.
 
-For each new email, prefer a valid custom sender whose verification is fresh. Recheck stale custom verification using the existing provider flags, DKIM, Return-Path and per-shop ownership proof. If no usable custom identity exists, use the managed address. A missing account token, custom verification outage or missing DNS record never makes custom DNS mandatory.
+## Advanced: exact merchant email with domain authentication
 
-Managed From name is the shop's configured display name, then Shopify store name, then `Dispute Guard`. Control characters and angle brackets are stripped, whitespace at the ends is removed and length is bounded to 100 characters. Symfony formats/escapes the display name as a mailbox header. Merchants cannot supply the managed mailbox or domain. Stores share the operator-controlled mailbox while retaining distinct display names.
+Existing DOMAIN senders keep their mode and proof through the additive migration. Advanced authentication requires current Postmark DKIM and Return-Path flags, matching public DNS, and a shop-specific ownership TXT record. Every shop must prove ownership separately. Standard senders need no DNS checks.
 
-Reply-To uses the first valid merchant reply address, support address, or selected From as a last resort. Normal onboarding requires a support address. Invalid persisted Reply-To cannot inject headers or prevent a valid support address from being selected. Custom From retains the verified custom name/address. `[TEST]` labels remain exclusive to test messages.
+Changing email or mode requires new verification. A failing DOMAIN sender never falls back automatically. Select Standard explicitly and complete its mailbox verification to switch methods.
 
-## Automation and queues
+## Identity and transport
 
-Custom absence, stale verification, outage, DNS loss, edits and disconnect do not change `auto_email_enabled`. The persisted setting is the merchant's preference. Genuine custom DNS loss revokes that custom sender's eligibility; new messages can use managed sending. Uninstall and privacy lifecycle protections still stop mail.
+From uses the store display name and exact verified merchant email. Shopify store name and the valid saved sender name are name alternatives. Names are bounded and sanitized against control/header injection.
 
-Each new queue row stores a versioned hash of the selected identity: shop, From name/address, Reply-To, custom sender ID and revision when applicable. Selection occurs before queuing and is compared again during job preparation. Changes to managed configuration, store alias, Reply-To, or selected custom sender cancel the queued message to manual review. Both managed-to-custom and custom-to-managed switching are prohibited for queued mail. Verification refresh alone does not alter an otherwise identical identity.
+Reply-To precedence:
+1. Valid merchant reply_to_email.
+2. Valid merchant support_email.
+3. The same verified merchant From email.
 
-The existing lock around the final identity check/send remains. A custom verification failure at that boundary prevents sending; it never falls back inside an already prepared send. Existing recipient refetch/hash, current shipping/reason checks, billing/prelaunch, onboarding, pause/global safety mode, redaction, claims, deduplication and uncertain-delivery no-retry behavior remain in force.
+MerchantSenderService::merchantIdentity() serves both customer and test automation. It never falls back to systemIdentity(). Application-managed and MAIL_FROM addresses are reserved for system use and cannot become merchant From identities.
 
-No new migration is needed: the existing `sender_identity_hash` column is reused. Snapshots from the previous algorithm are intentionally incompatible and cancel to manual review. Do not rewrite old snapshots to the current identity or blindly requeue cancelled/uncertain messages. Future eligible disputes use the new policy automatically.
+Verification freshness remains 15 minutes. Failed refresh invalidates eligibility. Missing, pending, stale, mismatched or uncertain verification blocks transport. Stored auto_email_enabled is preserved; a new activation request requires a verified sender. Dashboard explains the pause, and onboarding requires verified sender, support details and reviewed templates.
 
-## Merchant UI
+Live and Test Automation jobs carry a versioned hash of shop, exact From/name, Reply-To, sender ID and revision. The final guard serializes with sender edits and revalidates before transport. Changes cancel queued identities. Old managed/pre-versioned snapshots are rejected; old test jobs without snapshots are cancelled. Cancelled historical disputes never replay.
 
-Onboarding and settings show **Managed by Dispute Guard — no DNS setup required**. Sender verification is absent from activation requirements. Dashboard enablement is independent of custom-domain status and remains subject to general safety checks. Settings links to **Advanced: Custom sending domain (optional)**; its DNS forms and status are inside the Advanced section. Custom ownership/verification endpoints retain tenant authentication, CSRF and throttling.
+Pre-transport live cancellation releases reserved quota. SENT/UNKNOWN consume quota and uncertainty is never retried automatically. Recipient refetch, tenant isolation, shipping/reason rules, privacy, billing and queue claims remain unchanged.
 
-## Deployment and controlled validation
+## System sender configuration
 
-Keep `CHARGEGUARD_TEST_MODE=true` throughout setup. Pause cron workers, back up existing data/APP_KEY, deploy code, and set the managed fields in the real server environment. Preserve existing production Shopify, database and billing/prelaunch configuration.
+No new environment variable names are required. Existing names are retained for compatibility:
 
-```sh
-composer install --no-dev --prefer-dist --optimize-autoloader
-php artisan migrate --force
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
-php artisan chargeguard:health-check
-php artisan queue:restart
-```
+    MAIL_MAILER=postmark
+    POSTMARK_SERVER_TOKEN=
+    POSTMARK_ACCOUNT_TOKEN=
+    MANAGED_SENDER_ADDRESS=
+    MANAGED_SENDER_DOMAIN=
+    MAIL_FROM_ADDRESS=
+    MAIL_FROM_NAME="Dispute Guard"
+    CHARGEGUARD_TEST_MODE=true
+    BILLING_ENABLED=false
+    DISPUTEGUARD_PRELAUNCH=true
 
-There is no feature-specific migration; the command applies any older pending migrations. Health checks validate managed sending configuration. A missing account token is a warning about Advanced custom-domain management, not a normal-sending failure. Health checks do not create domains or send messages.
+Account Token manages signatures/domains; Server Token submits email. Both are required in production. The application-owned sender must already be authenticated in the same Postmark account. It is used ONLY for mailbox verification and explicit operator diagnostics. Legacy MAIL_FROM supplies system configuration when managed settings are absent, never customer/test From. Explicit invalid managed configuration fails health checks.
 
-Run one controlled operator test, which now uses the explicit managed address:
+Health-check requires both tokens, Postmark mailer, a valid system sender, required migrations and existing production safeguards. It makes no provider calls. HTTP uses bounded timeouts, disabled redirects, strict response validation and sanitized exceptions.
 
-```sh
-php artisan chargeguard:postmark-smoke-test YOUR_OWN_EMAIL
-```
+References: [Postmark Sender signatures API](https://postmarkapp.com/developer/api/signatures-api) and [error codes](https://postmarkapp.com/developer/api/overview). Creating a signature can send a Postmark confirmation email; automated tests fake these APIs.
 
-Production requires confirmation unless the operator explicitly supplies `--force`. Verify receipt, `[TEST]` subject, expected managed From and matching Postmark MessageID. An UNKNOWN result must not be blindly retried. This operator command does not touch shop preferences, disputes or deliveries.
+## Safe production deployment
 
-In staging, verify a merchant can complete onboarding with zero domain records, inspect its store-name From and merchant Reply-To, and exercise custom preference/fallback. Confirm queued messages cancel on identity changes in both directions. After controlled validation and existing production launch checks, explicitly set `CHARGEGUARD_TEST_MODE=false`, cache config and restart workers. No process enables merchant automation automatically.
+Keep CHARGEGUARD_TEST_MODE=true, BILLING_ENABLED=false and DISPUTEGUARD_PRELAUNCH=true throughout this release and controlled validation. Do not overwrite production .env, rotate APP_KEY, run seeders or destructive migrations.
 
-## Validation and limitations
+Back up database and APP_KEY through your hosting backup procedure. Pause scheduler/queue cron and let in-flight workers finish before deploying. Upload code and run from the application directory using PHP 8.2+:
 
-Regression coverage includes no-DNS onboarding/activation, managed transport headers, per-shop aliases, safe Reply-To, custom preference, new-message fallback after confirmed DNS loss, snapshot changes in both directions, optional account-token preflight, and legacy snapshot rejection. Existing shipping, Shopify, billing, privacy and delivery safety tests remain. Automated provider tests use mocks; no real message or DNS change was made during implementation.
+    php artisan down
+    composer install --no-dev --optimize-autoloader
+    php artisan config:clear
+    php artisan chargeguard:repair-quota-migration
+    php artisan migrate --force
+    php artisan config:cache
+    php artisan route:cache
+    php artisan view:cache
+    php artisan chargeguard:health-check
+    php artisan queue:restart
+    php artisan up
 
-Postmark account approval, domain authentication and live receipt remain operator validation steps. Provider acceptance does not guarantee inbox delivery. Existing documented Laravel security advisories remain separate public-launch blockers. The earlier sender-domain reports describe historical releases; this document supersedes their mandatory-domain and outage-blocking policy for new messages.
+Stop if any command fails. Keep workers paused until schema, caches and health checks succeed, then restore existing cron. No customer email is needed to validate deployment. Controlled Test Automation requires a verified merchant sender, explicitly enabled test tools and an operator-owned recipient. No real messages were sent during implementation.
 
-Validated locally: 175 tests / 776 assertions pass on both SQLite and isolated MySQL. Pint, PHP syntax checks (15 changed/new PHP files), and configuration, route and Blade cache checks pass.
+New additive migration: 2026_09_12_000001_add_merchant_sender_signatures.php. Existing migrations remain unchanged. The recovery command handles the reported interrupted quota migration using DATETIME for the missing table. It retains previously added columns and records the old migration only after expected columns/constraints exist. It never resets allowance, counters, periods or delivery rows. If the old migration is already recorded, it does nothing.
+
+On a fresh legacy MySQL installation, run migrations; if the quota migration fails, use this recovery command and resume migrate. Do not roll back sender columns after deploying jobs that depend on them. Preserve queue and deduplication records. Old identity snapshots intentionally become ineligible; review cancellations instead of replaying them.
+
+## Validation
+
+Run php artisan test, php scripts/test-mysql.php, php vendor/bin/pint --test and configuration/route/view cache checks. The MySQL helper uses an isolated local test database. No production data is used.
+
+Coverage includes creation/reconciliation, per-shop proof, token secrecy/expiry/reuse, exact From/Reply-To, no fallback, verified test transport, revision changes, cancellation/release, provider failures and advanced DNS. Existing billing, quota concurrency, Shopify auth, privacy, deduplication and shipping tests remain.

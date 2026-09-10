@@ -1,6 +1,6 @@
 Subscription plan limits, period assignment and quota rollout: [Per-shop quotas](SUBSCRIPTION_QUOTAS.md). Keep customer test mode enabled and billing disabled during controlled validation.
 
-Current sender architecture and validation procedure: [Managed sending](MANAGED_SENDING.md). Merchant DNS is optional.
+Current sender architecture and validation procedure: [Verified merchant sending](MANAGED_SENDING.md). Standard mailbox verification needs no DNS; customer and test automation have no application sender fallback.
 
 # Dispute Guard production deployment
 
@@ -54,7 +54,7 @@ MAIL_FROM_ADDRESS=notifications@YOUR_AUTHENTICATED_DOMAIN
 MAIL_FROM_NAME="Dispute Guard"
 ```
 
-Start with the global safety switch true during installation, then set false only when ready. Set CHARGEGUARD_TEST_MODE=false for completed setup; merchant automation still defaults off and its delivery pause remains unchanged.
+Keep CHARGEGUARD_TEST_MODE=true, BILLING_ENABLED=false and DISPUTEGUARD_PRELAUNCH=true throughout this implementation and controlled validation. Live launch is a separate operator decision.
 
 The three controls are independent: APP_ENV selects environment behavior; CHARGEGUARD_TEST_MODE blocks automatic customer mail; DISPUTEGUARD_ENABLE_TEST_TOOLS enables developer routes and test jobs only. If the tools flag is unset, only local/development/testing environments enable it. Demo routes always fail closed in production, even with their flag true.
 
@@ -76,7 +76,7 @@ Billing disabled requires BOTH the explicit prelaunch flag and an exact allowlis
    /path/to/php artisan key:generate
    ```
 
-6. Run `/path/to/php artisan migrate --force`. This hardening adds no schema/index migrations; existing shop/domain, dispute/status/date, webhook ID, email log and delivery uniqueness indexes remain. Never run migrate:fresh.
+6. Run `/path/to/php artisan migrate --force`. Apply the additive sender-signature migration. For the interrupted quota migration run chargeguard:repair-quota-migration first; see the current sender deployment procedure. Existing rows and quota periods are preserved. Never run migrate:fresh.
 7. `php artisan storage:link` is optional; current embedded pages need no public uploads. Never expose private logs/exports.
 8. Make storage and bootstrap/cache writable by the PHP user with appropriate owner/group permissions, typically 775/664, never 777. Restrict `.env` and backups.
 9. Run `/path/to/php artisan config:cache`.
@@ -112,13 +112,13 @@ During setup, send cron errors to a protected operator log instead of /dev/null.
 
 ## Enable live automation
 
-1. Complete authentication, GraphQL, webhook, email provider domain (SPF/DKIM/DMARC) and cron validation.
-2. Set CHARGEGUARD_TEST_MODE=false, leave demo/test tools false, run config:cache and queue:restart.
-3. Each merchant confirms store name, support/Reply-To addresses and reviews templates in Settings. Saving reviewed templates/support details completes onboarding without test mail or automatically enabling automation.
+1. Complete authentication, GraphQL, webhook, verified merchant sender and cron validation. Keep the global safety switch enabled during current validation.
+2. Obtain a separate live-launch decision after validation. This release keeps CHARGEGUARD_TEST_MODE=true; do not change it during deployment.
+3. Each merchant confirms store name, support/Reply-To addresses and reviews templates in Settings. Saving reviewed templates/support details completes onboarding only when the sender is verified, without test mail or automatically enabling automation.
 4. Turn off the merchant delivery pause and explicitly activate automatic customer emails. Billing must verify a subscription or permit the private allowlisted shop.
 5. Observe an eligible NEW dispute. Existing historical disputes are not automatically emailed. Master switch, template, reason, shipment, recipient, active shop, onboarding, entitlement, duplicate/stale-state and privacy checks remain in force.
 
-Default From uses the authenticated managed domain and store display name; Reply-To uses merchant support/reply settings. Advanced verified custom senders are preferred when available. Production subjects have no app-added [TEST]; merchant template content is preserved. Neutral reason-specific wording and carrier-event precedence are unchanged.
+From always uses the exact verified merchant email and store display name; Reply-To uses merchant reply-to, support, then the same merchant sender. Standard mailbox verification needs no DNS. Advanced DOMAIN verification remains optional; no managed sender fallback exists. Production subjects have no app-added [TEST]; merchant template content is preserved. Neutral reason-specific wording and carrier-event precedence are unchanged.
 
 ## Enable billing later
 
@@ -126,7 +126,7 @@ Configure actual Shopify App Pricing plans, plan/item handles, SHOPIFY_PARTNER_I
 
 ## Rollback
 
-Pause incoming work/cron and drain in-flight sends. Preserve database, APP_KEY and delivery claims. Restore the previous compatible code, regenerate caches and restart workers. This release adds two sender tables; preserve them on rollback, keep automation disabled, and do not roll back their migration after merchants configure senders. Do not restore an old database snapshot blindly after mail has been sent: lost deduplication claims can cause duplicates. Reconcile email provider provider records before retries. Restore matching Shopify URLs/config if changed, then health-check and verify authentication before resuming.
+Pause incoming work/cron and drain in-flight sends. Preserve database, APP_KEY and delivery claims. Restore the previous compatible code, regenerate caches and restart workers. This release adds signature fields to the existing sender table; preserve them and identity snapshots on rollback. Do not restore an old database snapshot blindly after mail has been sent: lost deduplication claims can cause duplicates. Reconcile email provider provider records before retries. Restore matching Shopify URLs/config if changed, then health-check and verify authentication before resuming.
 
 ## Recover a hosting migration error: maximum key length 1000 bytes
 

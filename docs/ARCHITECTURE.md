@@ -1,6 +1,6 @@
 Subscription plan limits, period assignment and quota rollout: [Per-shop quotas](SUBSCRIPTION_QUOTAS.md). Keep customer test mode enabled and billing disabled during controlled validation.
 
-Current sender architecture and validation procedure: [Managed sending](MANAGED_SENDING.md). Merchant DNS is optional.
+Current sender architecture and validation procedure: [Verified merchant sending](MANAGED_SENDING.md). Standard mailbox verification needs no DNS; customer and test automation have no application sender fallback.
 
 # ChargeGuard V1 architecture
 
@@ -63,7 +63,7 @@ Refund records and their transaction statuses are displayed separately. A refund
 
 Immediately before sending, refresh shop/settings/dispute/template eligibility. Fetch the actual Shopify order email and require it to match the hash captured during processing. A recipient change causes manual review, not redirection.
 
-A short transaction changes a delivery from QUEUED to SENDING and creates its log. Only one worker can win this conditional claim. email provider executes outside transactions. The successful result marks the delivery/log SENT and the dispute EMAIL_SENT. Mail prefers a verified custom sender when available; otherwise it uses the managed address with the store display name and merchant Reply-To. Queue snapshots prohibit switching identities after queuing.
+A short transaction changes a delivery from QUEUED to SENDING and creates its log. Only one worker can win this conditional claim. email provider executes outside transactions. The successful result marks the delivery/log SENT and the dispute EMAIL_SENT. Mail requires the exact verified merchant sender, store display name and merchant Reply-To. Standard signature verification needs no DNS; advanced DOMAIN verification remains optional. Queue snapshots prohibit switching identities after queuing.
 
 **email provider cannot provide exactly-once delivery across a process crash.** If email provider throws after the claim, the result becomes UNKNOWN/manual review; it is not automatically retried. If a worker dies after email provider accepted the email, maintenance marks stale SENDING records uncertain after five minutes. Check provider records. Do not reset a claim or blindly retry uncertain mail. Pre-send transient Shopify failures can retry safely.
 

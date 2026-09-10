@@ -7,8 +7,8 @@
 <s-badge @if($automationState['label'] === 'Enabled') tone="success" @endif>{{ $automationState['label'] }}</s-badge>
 <s-paragraph>{{ $automationState['description'] }}</s-paragraph>
 <s-link href="/settings">Manage automation settings</s-link>
-<s-paragraph>Managed by Dispute Guard — no DNS setup required</s-paragraph>
-<s-link href="/settings/email-sender">Advanced: Custom sending domain</s-link>
+<s-paragraph>Customer emails are sent from your verified business email.</s-paragraph>
+<s-link href="/settings/email-sender">Configure and verify sender email</s-link>
 </s-section>
 <div class="metrics">
 @foreach($metrics as $label=>$value)<s-section heading="{{ $label }}"><div class="metric-value">{{ $value }}</div></s-section>@endforeach

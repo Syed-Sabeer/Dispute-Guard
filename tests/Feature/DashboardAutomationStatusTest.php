@@ -39,7 +39,7 @@ class DashboardAutomationStatusTest extends TestCase
                 $shop->settings()->update(['onboarded_at' => null]);
                 break;
             case 'sender':
-                config(['senders.managed_address' => 'invalid']);
+                $shop->emailSender()->update(['verification_status' => 'PENDING']);
                 break;
             case 'missing_period':
                 $shop->update(['billing_period_start' => null, 'billing_period_end' => null]);
@@ -80,7 +80,7 @@ class DashboardAutomationStatusTest extends TestCase
             'global test mode' => ['global_test', 'Automation paused', 'Customer emails are blocked while test mode is enabled.'],
             'shop test mode' => ['shop_test', 'Automation paused', 'Customer emails are blocked while test mode is enabled.'],
             'onboarding' => ['onboarding', 'Automation paused', 'Complete onboarding'],
-            'managed sender unavailable' => ['sender', 'Automation paused', 'Email delivery is unavailable.'],
+            'merchant sender unverified' => ['sender', 'Automation paused', 'Verify your sender email before automatic customer follow-ups can be sent.'],
             'verification failed with cached active status' => ['billing', 'Automation paused', 'Subscription verification is required.'],
             'missing period' => ['missing_period', 'Automation paused', 'Usage period is unavailable.'],
             'expired period' => ['expired_period', 'Automation paused', 'Usage period is unavailable.'],

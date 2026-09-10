@@ -1,7 +1,7 @@
 @extends('layouts.app')
 @section('title','Settings')
 @section('content')
-<s-section heading="Email sender"><s-paragraph>Managed by Dispute Guard — no DNS setup required</s-paragraph><s-paragraph>Emails use your store name. Replies go to your support or reply-to address.</s-paragraph><details><summary>Advanced</summary><s-link href="/settings/email-sender">Custom sending domain (optional)</s-link></details></s-section>
+<s-section heading="Email sender"><s-paragraph>Customer emails are sent from your verified business email. No DNS setup is required for standard sender verification.</s-paragraph>@include('settings.sender-form')</s-section>
 <s-section heading="Customer communication"><form data-api-form data-method="PUT" action="/settings"><div class="form-grid">
 <label>Store display name<input name="store_display_name" required maxlength="150" value="{{ $settings->store_display_name ?: $shop->store_name }}"></label>
 <label>Support email<input name="support_email" type="email" required value="{{ $settings->support_email }}"></label>
@@ -12,7 +12,7 @@
 <label><input type="checkbox" name="templates_reviewed" @checked($settings->templates_reviewed_at)>I have reviewed the automation templates.</label>
 <label><input type="checkbox" name="test_mode" @checked($settings->test_mode)>Pause customer email delivery</label>
 <label><input type="checkbox" name="auto_email_enabled" @checked($settings->auto_email_enabled)>Activate automatic customer emails for new Shopify Payments disputes</label>
-<s-paragraph>Enabling automation allows real customer emails for eligible new disputes. Confirm your support address, review your templates, and turn off the delivery pause when ready.@if(config('chargeguard.billing_enabled')) An active subscription is also required.@endif</s-paragraph>
+<s-paragraph>Enabling automation allows real customer emails for eligible new disputes. Verify your sender email, confirm your support address, review your templates, and turn off the delivery pause when ready.@if(config('chargeguard.billing_enabled')) An active subscription is also required.@endif</s-paragraph>
 @if(config('chargeguard.test_mode'))<s-paragraph>Customer email delivery is temporarily paused by the app operator.</s-paragraph>@endif
 <div class="actions"><button>Save settings</button></div>
 </form></s-section>

@@ -24,9 +24,9 @@ class PostmarkSmokeTest extends Command
             return self::FAILURE;
         }
         try {
-            $from = app(MerchantSenderService::class)->managedAddress();
+            $from = app(MerchantSenderService::class)->systemIdentity()['email'];
         } catch (EmailProviderException) {
-            $this->error('FAIL Configure Postmark and a valid managed sender.');
+            $this->error('FAIL Configure Postmark and a valid system verification sender.');
 
             return self::FAILURE;
         }
@@ -34,7 +34,7 @@ class PostmarkSmokeTest extends Command
         if (config('mail.default') !== 'postmark' || ! config('services.postmark.token')
             || config('services.postmark.token') === 'POSTMARK_API_TEST'
             || ! Recipient::valid($from) || preg_match('/[\p{C}<>]/u', $name)) {
-            $this->error('FAIL Configure Postmark and a valid application fallback sender.');
+            $this->error('FAIL Configure Postmark and a valid system verification sender.');
 
             return self::FAILURE;
         }

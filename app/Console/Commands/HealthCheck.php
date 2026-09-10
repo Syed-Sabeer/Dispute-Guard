@@ -22,7 +22,7 @@ class HealthCheck extends Command
             'PHP 8.2+' => PHP_VERSION_ID >= 80200, 'Database queue' => config('queue.default') === 'database',
             'Queue shares application database' => ! config('queue.connections.database.connection') || config('queue.connections.database.connection') === config('database.default'),
             'Shopify credentials' => (bool) (config('shopify.api_key') && config('shopify.api_secret')),
-            'Managed sender configuration' => app(MerchantSenderService::class)->managedConfigured(),
+            'System verification sender configuration' => app(MerchantSenderService::class)->managedConfigured(),
             'App key' => (bool) config('app.key'),
             'Storage writable' => is_writable(storage_path()),
             'Cache directory writable' => is_writable(base_path('bootstrap/cache')),
@@ -58,7 +58,7 @@ class HealthCheck extends Command
             }
             $checks['Production Postmark mailer'] = config('mail.default') === 'postmark';
             $checks['Postmark send token configured'] = (bool) config('services.postmark.token') && config('services.postmark.token') !== 'POSTMARK_API_TEST';
-            $this->line(config('services.postmark.account_token') ? 'PASS Advanced custom-domain management configured' : 'WARN Advanced custom-domain management unavailable; managed sending is unaffected');
+            $checks['Postmark account token configured'] = (bool) config('services.postmark.account_token');
             $checks['Secure cookies'] = (bool) config('session.secure');
             $checks['Embedded cookies'] = config('session.same_site') === 'none';
         } else {

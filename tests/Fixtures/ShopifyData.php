@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Fixtures;
 
+use App\Models\EmailSendingDomain;
 use App\Models\Shop;
 use App\Services\Email\DefaultEmailTemplateFactory;
 use App\Services\Shopify\ShopifyDisputeService;
@@ -12,13 +13,20 @@ use Firebase\JWT\JWT;
 
 trait ShopifyData
 {
-    protected function shop(array $settings = []): Shop
+    protected function shop(array $settings = [], bool $verifiedSender = true): Shop
     {
         $shop = Shop::factory()->create(['shopify_shop_id' => 'gid://shopify/Shop/123']);
         $shop->update(['quota_plan' => 'starter', 'billing_period_start' => now()->startOfDay(), 'billing_period_end' => now()->startOfDay()->addDays(30)]);
         $shop->update(['access_token' => ['accessMode' => 'offline', 'shop' => $shop->handle(), 'token' => 'offline-test-token', 'scope' => 'read_orders,read_shopify_payments_disputes', 'refreshToken' => null, 'refreshTokenExpires' => null, 'expires' => null, 'user' => null]]);
         $shop->settings()->create($settings + ['store_display_name' => 'Demo Store', 'support_email' => 'support@example.com', 'reply_to_email' => 'support@example.com', 'auto_email_enabled' => true, 'test_mode' => false, 'onboarded_at' => now()]);
         app(DefaultEmailTemplateFactory::class)->seed($shop);
+        if ($verifiedSender) {
+            $domain = EmailSendingDomain::firstOrCreate(['domain' => 'fixture-merchant.com']);
+            $shop->emailSender()->create(['email_sending_domain_id' => $domain->id, 'sender_name' => 'Demo Store',
+                'sender_email' => 'support@fixture-merchant.com', 'sender_mode' => 'SIGNATURE', 'provider_signature_id' => 101,
+                'ownership_host' => '', 'ownership_value' => '', 'ownership_verified' => true,
+                'verification_status' => 'VERIFIED', 'verified_at' => now(), 'provider_confirmed_at' => now(), 'last_checked_at' => now()]);
+        }
 
         return $shop;
     }

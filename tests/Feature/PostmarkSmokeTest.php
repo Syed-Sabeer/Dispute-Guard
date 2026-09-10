@@ -27,7 +27,7 @@ class PostmarkSmokeTest extends TestCase
 
     public function test_one_explicit_operator_message_without_merchant_side_effects(): void
     {
-        $shop = $this->shop();
+        $shop = $this->shop([], false);
         $before = $shop->settings()->first()->getAttributes();
         Http::fake(['api.postmarkapp.com/email' => Http::response(['ErrorCode' => 0, 'MessageID' => self::ID])]);
         $this->artisan('chargeguard:postmark-smoke-test', ['recipient' => 'operator@own-domain.com', '--force' => true])
@@ -68,7 +68,7 @@ class PostmarkSmokeTest extends TestCase
     {
         config(['services.postmark.token' => '']);
         $this->artisan('chargeguard:postmark-smoke-test', ['recipient' => 'operator@own-domain.com', '--force' => true])
-            ->expectsOutput('FAIL Configure Postmark and a valid application fallback sender.')->assertExitCode(1);
+            ->expectsOutput('FAIL Configure Postmark and a valid system verification sender.')->assertExitCode(1);
         Http::assertNothingSent();
     }
 
