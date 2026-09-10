@@ -5,6 +5,7 @@ use App\Http\Controllers\BillingController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DisputeController;
 use App\Http\Controllers\EmailLogController;
+use App\Http\Controllers\EmailSenderController;
 use App\Http\Controllers\EmailTemplateController;
 use App\Http\Controllers\PrivacyRequestController;
 use App\Http\Controllers\SettingsController;
@@ -16,10 +17,10 @@ use App\Http\Middleware\EnsureTestToolsEnabled;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware([AuthenticateShopify::class, EmbeddedCsrf::class, 'throttle:merchant'])->group(function () {
-    Route::get('/settings/email-sender', [\App\Http\Controllers\EmailSenderController::class, 'index']);
-    Route::put('/settings/email-sender', [\App\Http\Controllers\EmailSenderController::class, 'save'])->middleware(['throttle:sender-domain', 'throttle:sender-create']);
-    Route::post('/settings/email-sender/verify', [\App\Http\Controllers\EmailSenderController::class, 'verify'])->middleware('throttle:sender-domain');
-    Route::post('/settings/email-sender/disconnect', [\App\Http\Controllers\EmailSenderController::class, 'disconnect'])->middleware('throttle:sender-domain');
+    Route::get('/settings/email-sender', [EmailSenderController::class, 'index']);
+    Route::put('/settings/email-sender', [EmailSenderController::class, 'save'])->middleware(['throttle:sender-domain', 'throttle:sender-create']);
+    Route::post('/settings/email-sender/verify', [EmailSenderController::class, 'verify'])->middleware('throttle:sender-domain');
+    Route::post('/settings/email-sender/disconnect', [EmailSenderController::class, 'disconnect'])->middleware('throttle:sender-domain');
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
     Route::get('/onboarding', [SettingsController::class, 'onboarding']);
     Route::get('/disputes', [DisputeController::class, 'index']);
@@ -37,6 +38,7 @@ Route::middleware([AuthenticateShopify::class, EmbeddedCsrf::class, 'throttle:me
     Route::get('/settings', [SettingsController::class, 'edit']);
     Route::put('/settings', [SettingsController::class, 'update'])->middleware(EnsureActiveSubscription::class);
     Route::get('/billing', BillingController::class);
+    Route::get('/plans', [BillingController::class, 'plans']);
     Route::get('/privacy-requests', [PrivacyRequestController::class, 'index']);
     Route::get('/privacy-requests/{privacyRequest}/export', [PrivacyRequestController::class, 'export']);
     Route::post('/privacy-requests/{privacyRequest}/complete', [PrivacyRequestController::class, 'complete']);

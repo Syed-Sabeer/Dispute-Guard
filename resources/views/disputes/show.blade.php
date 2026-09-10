@@ -5,6 +5,7 @@
 @if($dispute->shopify_order_id)<s-link target="_top" href="https://admin.shopify.com/store/{{ $shop->handle() }}/orders/{{ basename($dispute->shopify_order_id) }}">Open Shopify order</s-link>@endif
 <s-badge>{{ strtoupper($dispute->source) }}</s-badge></div>
 @if($dispute->review_reason)<s-banner tone="warning" heading="Review required">{{ $dispute->review_reason }}</s-banner>@endif
+@if(str_contains(strtolower($dispute->review_reason ?? ''), 'quota'))<s-link href="/plans">Upgrade plan</s-link>@endif
 <div class="form-grid"><s-section heading="Dispute"><dl>
 <dt>Order</dt><dd>{{ $dispute->order_name ?: 'Unavailable' }}</dd>
 <dt>Reason</dt><dd>{{ str_replace('_',' ',$dispute->reason) }}</dd>

@@ -1,3 +1,5 @@
+Subscription plan limits, period assignment and quota rollout: [Per-shop quotas](SUBSCRIPTION_QUOTAS.md). Keep customer test mode enabled and billing disabled during controlled validation.
+
 # Managed sending (current production architecture)
 
 Dispute Guard sends normal dispute emails without merchant DNS setup. Postmark remains the delivery provider. The operator authenticates a Dispute Guard-owned domain once; merchants configure their store display name and support/Reply-To address, review templates and enable automation. Advanced custom sending domains are optional.

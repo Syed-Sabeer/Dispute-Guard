@@ -25,6 +25,7 @@
         <env name="DB_DATABASE" value=":memory:" force="true"/>
         <env name="SHOPIFY_API_KEY" value="test-client" force="true"/>
         <env name="SHOPIFY_API_SECRET" value="test-secret-for-signature-verification-only" force="true"/>
+        <env name="BILLING_ENABLED" value="true" force="true"/>
         <env name="BILLING_ENFORCED" value="false" force="true"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>

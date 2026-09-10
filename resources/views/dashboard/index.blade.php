@@ -1,6 +1,7 @@
 @extends('layouts.app')
 @section('title','Dashboard')
 @section('content')
+@include('billing.usage')
 <s-paragraph>Monitor disputes and help customers resolve their concerns.</s-paragraph>
 <s-section heading="Automation">
 @php($senders = app(\App\Services\Email\MerchantSenderService::class))

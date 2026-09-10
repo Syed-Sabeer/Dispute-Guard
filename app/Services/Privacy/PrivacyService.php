@@ -8,6 +8,7 @@ use App\Models\Dispute;
 use App\Models\EmailLog;
 use App\Models\PrivacyRequest;
 use App\Models\WebhookEvent;
+use App\Services\Billing\UsageQuota;
 use App\Services\Email\Recipient;
 use Illuminate\Support\Facades\DB;
 
@@ -54,6 +55,9 @@ class PrivacyService
                 ]);
             } else {
                 foreach ($disputes as $dispute) {
+                    $dispute->automationDeliveries()->get()->each(function ($delivery) {
+                        app(UsageQuota::class)->settle($delivery, $delivery->transport_started_at !== null || in_array($delivery->status, ['SENT', 'UNKNOWN'], true));
+                    });
                     $dispute->automationDeliveries()->update(['status' => 'CANCELLED', 'recipient_hash' => null, 'failure_reason' => 'Customer data redacted.']);
                     $dispute->update(['redacted_at' => now(), 'order_name' => null, 'shopify_order_id' => null, 'tracking_company' => null, 'tracking_number' => null, 'tracking_url' => null, 'customer_email_hash' => null, 'refunds' => null, 'automation_status' => 'MANUAL_REVIEW', 'review_reason' => 'Customer data redacted.']);
                 }
@@ -62,6 +66,6 @@ class PrivacyService
                 PrivacyRequest::forShop($shop)->update(['export' => null, 'status' => 'REDACTED', 'completed_at' => now()]);
             }
             $event->update(['status' => 'PROCESSED', 'payload' => null, 'processed_at' => now()]);
-        });
+        }, 3);
     }
 }

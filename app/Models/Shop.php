@@ -11,11 +11,11 @@ class Shop extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['shop_domain', 'shopify_shop_id', 'access_token', 'store_name', 'email', 'support_email', 'reply_to_email', 'timezone', 'currency', 'status', 'installed_at', 'uninstalled_at', 'billing_status', 'plan_handle', 'billing_checked_at'];
+    protected $fillable = ['shop_domain', 'shopify_shop_id', 'access_token', 'store_name', 'email', 'support_email', 'reply_to_email', 'timezone', 'currency', 'status', 'installed_at', 'uninstalled_at', 'billing_status', 'plan_handle', 'billing_checked_at', 'quota_plan', 'billing_period_start', 'billing_period_end'];
 
     protected $hidden = ['access_token', 'email'];
 
-    protected $casts = ['access_token' => 'encrypted:array', 'installed_at' => 'datetime', 'uninstalled_at' => 'datetime', 'billing_checked_at' => 'datetime'];
+    protected $casts = ['access_token' => 'encrypted:array', 'installed_at' => 'datetime', 'uninstalled_at' => 'datetime', 'billing_checked_at' => 'datetime', 'billing_period_start' => 'datetime', 'billing_period_end' => 'datetime'];
 
     public function disputes()
     {

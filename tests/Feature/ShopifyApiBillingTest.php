@@ -68,7 +68,7 @@ class ShopifyApiBillingTest extends TestCase
         $shop = $this->shop();
         config(['chargeguard.billing_enforced' => true, 'shopify.partner_id' => '123', 'shopify.partner_token' => 'partner-test-token', 'shopify.app_id' => 'gid://shopify/App/456', 'chargeguard.billing_items.starter' => 'starter-base']);
         Http::fake(['partners.shopify.com/*' => Http::sequence()
-            ->push(['data' => ['activeSubscription' => ['items' => [['handle' => 'starter-base', 'price' => ['active' => true]]]]]])
+            ->push(['data' => ['activeSubscription' => ['currentBillingCycle' => ['startTime' => now()->subDay()->toIso8601String(), 'endTime' => now()->addDays(29)->toIso8601String()], 'items' => [['handle' => 'starter-base', 'price' => ['active' => true]]]]]])
             ->push(['data' => ['activeSubscription' => null]])
             ->push(['errors' => [['message' => 'throttled']]])]);
         $service = app(ShopifyAppPricingService::class);

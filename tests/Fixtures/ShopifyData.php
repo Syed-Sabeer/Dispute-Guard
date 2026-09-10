@@ -15,6 +15,7 @@ trait ShopifyData
     protected function shop(array $settings = []): Shop
     {
         $shop = Shop::factory()->create(['shopify_shop_id' => 'gid://shopify/Shop/123']);
+        $shop->update(['quota_plan' => 'starter', 'billing_period_start' => now()->startOfDay(), 'billing_period_end' => now()->startOfDay()->addDays(30)]);
         $shop->update(['access_token' => ['accessMode' => 'offline', 'shop' => $shop->handle(), 'token' => 'offline-test-token', 'scope' => 'read_orders,read_shopify_payments_disputes', 'refreshToken' => null, 'refreshTokenExpires' => null, 'expires' => null, 'user' => null]]);
         $shop->settings()->create($settings + ['store_display_name' => 'Demo Store', 'support_email' => 'support@example.com', 'reply_to_email' => 'support@example.com', 'auto_email_enabled' => true, 'test_mode' => false, 'onboarded_at' => now()]);
         app(DefaultEmailTemplateFactory::class)->seed($shop);

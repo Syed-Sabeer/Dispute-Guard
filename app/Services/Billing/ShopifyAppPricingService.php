@@ -6,6 +6,7 @@ namespace App\Services\Billing;
 
 use App\Models\Shop;
 use App\Services\DeploymentMode;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Http;
 
 class ShopifyAppPricingService implements BillingServiceInterface
@@ -41,7 +42,14 @@ class ShopifyAppPricingService implements BillingServiceInterface
             $matched = $items->first(fn ($i) => in_array($i['handle'], array_values(config('chargeguard.billing_items')), true));
             $active = $sub !== null && $matched !== null;
             $plan = $matched ? array_search($matched['handle'], config('chargeguard.billing_items'), true) : null;
-            $shop->update(['billing_status' => $active ? 'ACTIVE' : 'INACTIVE', 'plan_handle' => $plan ? config('chargeguard.billing.'.$plan) : null, 'billing_checked_at' => now()]);
+            $start = data_get($sub, 'currentBillingCycle.startTime');
+            $end = data_get($sub, 'currentBillingCycle.endTime');
+            $start = is_string($start) ? CarbonImmutable::parse($start)->utc() : null;
+            $end = is_string($end) ? CarbonImmutable::parse($end)->utc() : null;
+            $active = $active && $start && $end && $start->lte(now()) && $end->gt(now()) && $end->gt($start);
+            $shop->update(['billing_status' => $active ? 'ACTIVE' : 'INACTIVE', 'plan_handle' => $plan ? config('chargeguard.billing.'.$plan) : null,
+                'quota_plan' => $active ? $plan : null, 'billing_period_start' => $active ? $start : null,
+                'billing_period_end' => $active ? $end : null, 'billing_checked_at' => now()]);
 
             return $active;
         } catch (\Throwable) {

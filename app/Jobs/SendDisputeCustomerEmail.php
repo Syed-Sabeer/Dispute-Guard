@@ -9,6 +9,7 @@ use App\Exceptions\ShopifyApiException;
 use App\Models\AutomationDelivery;
 use App\Models\Dispute;
 use App\Models\EmailLog;
+use App\Services\Billing\UsageQuota;
 use App\Services\Disputes\AutomationResolver;
 use App\Services\Email\EmailComposer;
 use App\Services\Email\MerchantSenderService;
@@ -93,6 +94,11 @@ class SendDisputeCustomerEmail extends QueuedJob
             if (config('chargeguard.test_mode') || ! $shop->active() || ! $settings?->auto_email_enabled || $settings->test_mode || $lockedDispute->redacted_at || ! $template->enabled) {
                 return false;
             }
+            if (! app(UsageQuota::class)->canSend($delivery)) {
+                $this->cancel($delivery, 'Reserved follow-up is outside the current quota or billing period; manual review required.');
+
+                return false;
+            }
             $claimed = AutomationDelivery::whereKey($delivery->id)->where('status', 'QUEUED')->update(['status' => 'SENDING', 'claimed_at' => now()]);
             if (! $claimed) {
                 return false;
@@ -104,6 +110,8 @@ class SendDisputeCustomerEmail extends QueuedJob
             return true;
         });
         if (! $claimed) {
+            $this->cancel($delivery, 'Automation stopped before transport.');
+
             return;
         }
         try {
@@ -115,10 +123,15 @@ class SendDisputeCustomerEmail extends QueuedJob
 
                 return;
             }
-            $sent = app(MerchantSenderService::class)->guard($shop, $message['identity'], false, fn () => Mail::to($email)->send($message['mailable']));
+            $sent = app(MerchantSenderService::class)->guard($shop, $message['identity'], false, function () use ($delivery, $email, $message) {
+                app(UsageQuota::class)->beginTransport($delivery);
+
+                return Mail::to($email)->send($message['mailable']);
+            });
             $providerId = config('mail.default') === 'postmark' ? $sent?->getMessageId() : null;
             DB::transaction(function () use ($delivery, $dispute, $providerId) {
                 $dispute = Dispute::whereKey($dispute->id)->lockForUpdate()->firstOrFail();
+                app(UsageQuota::class)->settle($delivery, true);
                 if ($dispute->redacted_at) {
                     return;
                 }
@@ -128,26 +141,42 @@ class SendDisputeCustomerEmail extends QueuedJob
             });
         } catch (\Throwable $e) {
             if ($e instanceof EmailProviderException && $e->category !== 'DELIVERY_OUTCOME_UNKNOWN') {
-                $delivery->update(['status' => 'FAILED', 'failure_reason' => $e->getMessage()]);
-                $delivery->emailLog()->update(['status' => 'FAILED', 'error_message' => $e->getMessage()]);
-                $dispute->update(['automation_status' => 'MANUAL_REVIEW', 'review_reason' => $e->getMessage()]);
+                DB::transaction(function () use ($delivery, $dispute, $e) {
+                    Dispute::whereKey($dispute->id)->lockForUpdate()->first();
+                    app(UsageQuota::class)->settle($delivery, false, true);
+                    $delivery->update(['status' => 'FAILED', 'failure_reason' => $e->getMessage()]);
+                    $delivery->emailLog()->update(['status' => 'FAILED', 'error_message' => $e->getMessage()]);
+                    $dispute->update(['automation_status' => 'MANUAL_REVIEW', 'review_reason' => $e->getMessage()]);
+                }, 3);
 
                 return;
             }
             // Email provider may have accepted the email even when the client reports failure. Never automatically resend.
-            $delivery->update(['status' => 'UNKNOWN', 'failure_reason' => 'Delivery outcome uncertain; review email provider records before any further action.']);
-            $delivery->emailLog()->update(['status' => 'FAILED', 'error_message' => 'Email provider outcome uncertain. Automatic retry suppressed.']);
-            $dispute->update(['automation_status' => 'MANUAL_REVIEW', 'review_reason' => 'Email delivery outcome uncertain; check provider records.']);
+            if ($delivery->quota_period_id && ! $delivery->fresh()?->transport_started_at) {
+                $this->cancel($delivery, 'Email preparation failed before transport. Reservation released.', true);
+
+                return;
+            }
+            DB::transaction(function () use ($delivery, $dispute) {
+                Dispute::whereKey($dispute->id)->lockForUpdate()->first();
+                app(UsageQuota::class)->settle($delivery, true);
+                $delivery->update(['status' => 'UNKNOWN', 'failure_reason' => 'Delivery outcome uncertain; review email provider records before any further action.']);
+                $delivery->emailLog()->update(['status' => 'FAILED', 'error_message' => 'Email provider outcome uncertain. Automatic retry suppressed.']);
+                $dispute->update(['automation_status' => 'MANUAL_REVIEW', 'review_reason' => 'Email delivery outcome uncertain; check provider records.']);
+            }, 3);
         }
     }
 
     private function cancel(AutomationDelivery $delivery, string $reason, bool $claimed = false): void
     {
         DB::transaction(function () use ($delivery, $reason, $claimed) {
+            Dispute::whereKey($delivery->dispute_id)->lockForUpdate()->first();
+            app(UsageQuota::class)->lockReservation($delivery);
             $changed = AutomationDelivery::whereKey($delivery->id)->where('status', $claimed ? 'SENDING' : 'QUEUED')->update(['status' => 'CANCELLED', 'failure_reason' => $reason]);
             if (! $changed) {
                 return;
             }
+            app(UsageQuota::class)->settle($delivery, false);
             $delivery->emailLog()->update(['status' => 'CANCELLED', 'error_message' => $reason, 'rendered_body' => null]);
             $delivery->dispute->update(['automation_status' => 'MANUAL_REVIEW', 'review_reason' => $reason]);
         });

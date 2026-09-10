@@ -11,6 +11,7 @@ use App\Models\AutomationDelivery;
 use App\Models\Dispute;
 use App\Models\EmailLog;
 use App\Models\Shop;
+use App\Services\Billing\UsageQuota;
 use App\Services\Email\MerchantSenderService;
 use App\Services\Email\Recipient;
 use App\Services\Orders\OrderShippingStateResolver;
@@ -65,7 +66,7 @@ class DisputeProcessor
                 if (! $locked->redacted_at) {
                     $locked->update($attributes);
                 }
-            });
+            }, 3);
             $record->refresh();
             if ($record->redacted_at) {
                 return $record;
@@ -95,11 +96,23 @@ class DisputeProcessor
                 if ($blocked) {
                     return;
                 }
+                $quota = app(UsageQuota::class);
+                $period = $quota->reserve($shop);
+                if (! $period) {
+                    $reason = $quota->summary($shop) ? $quota::EXHAUSTED : $quota::UNAVAILABLE;
+                    $locked->update(['automation_status' => 'MANUAL_REVIEW', 'review_reason' => $reason]);
+
+                    return;
+                }
                 $delivery = AutomationDelivery::firstOrCreate(['dispute_id' => $locked->id], [
                     'shop_id' => $shop->id, 'email_template_id' => $template->id, 'shipping_state' => $locked->shipping_state,
                     'dispute_reason' => $locked->reason, 'recipient_hash' => $locked->customer_email_hash,
                     'sender_identity_hash' => $senderKey,
+                    'quota_period_id' => $period->id, 'quota_status' => 'RESERVED',
                 ]);
+                if (! $delivery->wasRecentlyCreated) {
+                    $period->decrement('reserved');
+                }
                 if ($delivery->wasRecentlyCreated) {
                     EmailLog::create([
                         'shop_id' => $shop->id, 'dispute_id' => $locked->id, 'email_template_id' => $template->id,
@@ -107,9 +120,11 @@ class DisputeProcessor
                         'recipient_hash' => $locked->customer_email_hash, 'recipient_masked' => Recipient::mask($email),
                         'shipping_state' => $locked->shipping_state, 'dispute_reason' => $locked->reason,
                     ]);
-                    SendDisputeCustomerEmail::dispatch($delivery->id)->onConnection('database');
+                    // Database queue shares this connection: job, delivery and reservation
+                    // commit together. Workers cannot see the uncommitted job.
+                    SendDisputeCustomerEmail::dispatch($delivery->id)->onConnection('database')->beforeCommit();
                 }
-            });
+            }, 3);
 
             return $record->refresh();
         });

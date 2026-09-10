@@ -6,6 +6,7 @@ use App\Exceptions\EmailProviderException;
 use App\Jobs\SendDisputeCustomerEmail;
 use App\Models\AutomationDelivery;
 use App\Models\EmailLog;
+use App\Services\Billing\UsageQuota;
 use App\Services\Disputes\AutomationResolver;
 use App\Services\Disputes\DisputeProcessor;
 use App\Services\Email\EmailComposer;
@@ -414,6 +415,8 @@ class MerchantSenderTest extends TestCase
         app()->call([$job, 'handle']);
         app()->call([$job, 'handle']);
         $this->assertSame($expected, $delivery->fresh()->status);
+        $this->assertSame($expected === 'UNKNOWN' ? 'CONSUMED' : 'RELEASED', $delivery->fresh()->quota_status);
+        $this->assertSame($expected === 'UNKNOWN' ? 1 : 0, app(UsageQuota::class)->summary($shop)['used']);
         $this->assertSame('MANUAL_REVIEW', $delivery->dispute->fresh()->automation_status);
         $this->assertStringNotContainsString('private-server-token', $delivery->fresh()->failure_reason);
         Http::assertSentCount(1);

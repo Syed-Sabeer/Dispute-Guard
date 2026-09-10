@@ -5,12 +5,17 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Enums\DisputeStatus;
+use App\Services\Billing\BillingServiceInterface;
+use App\Services\Billing\UsageQuota;
 
 class DashboardController extends MerchantController
 {
     public function __invoke()
     {
         $shop = $this->shop();
+        if (config('chargeguard.billing_enabled')) {
+            app(BillingServiceInterface::class)->entitled($shop);
+        }
         $q = $shop->disputes()->where('source', 'shopify');
         $metrics = [
             'Open disputes' => (clone $q)->whereIn('status', DisputeStatus::open())->count(),
@@ -23,6 +28,7 @@ class DashboardController extends MerchantController
         }
         $risk = (clone $q)->whereIn('status', DisputeStatus::open())->selectRaw('currency, SUM(amount) as total')->groupBy('currency')->get();
 
-        return $this->page('dashboard.index', ['metrics' => $metrics, 'risk' => $risk, 'disputes' => (clone $q)->latest()->limit(8)->get()]);
+        return $this->page('dashboard.index', ['metrics' => $metrics, 'risk' => $risk, 'disputes' => (clone $q)->latest()->limit(8)->get(),
+            'usage' => app(UsageQuota::class)->summary($shop)]);
     }
 }

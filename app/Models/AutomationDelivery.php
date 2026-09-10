@@ -6,9 +6,9 @@ namespace App\Models;
 
 class AutomationDelivery extends TenantModel
 {
-    protected $fillable = ['shop_id', 'dispute_id', 'email_template_id', 'shipping_state', 'dispute_reason', 'status', 'recipient_hash', 'sender_identity_hash', 'sent_at', 'claimed_at', 'failure_reason'];
+    protected $fillable = ['shop_id', 'dispute_id', 'email_template_id', 'shipping_state', 'dispute_reason', 'status', 'recipient_hash', 'sender_identity_hash', 'sent_at', 'claimed_at', 'failure_reason', 'quota_period_id', 'quota_status', 'transport_started_at'];
 
-    protected $casts = ['sent_at' => 'datetime', 'claimed_at' => 'datetime'];
+    protected $casts = ['sent_at' => 'datetime', 'claimed_at' => 'datetime', 'transport_started_at' => 'datetime'];
 
     public function dispute()
     {

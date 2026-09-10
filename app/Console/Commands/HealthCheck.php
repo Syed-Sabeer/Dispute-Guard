@@ -20,6 +20,7 @@ class HealthCheck extends Command
     {
         $checks = [
             'PHP 8.2+' => PHP_VERSION_ID >= 80200, 'Database queue' => config('queue.default') === 'database',
+            'Queue shares application database' => ! config('queue.connections.database.connection') || config('queue.connections.database.connection') === config('database.default'),
             'Shopify credentials' => (bool) (config('shopify.api_key') && config('shopify.api_secret')),
             'Managed sender configuration' => app(MerchantSenderService::class)->managedConfigured(),
             'App key' => (bool) config('app.key'),
@@ -34,7 +35,7 @@ class HealthCheck extends Command
                 $tables = DB::select("SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE'");
                 $checks['Transactional InnoDB tables'] = collect($tables)->every(fn ($table) => strtoupper($table->ENGINE) === 'INNODB');
             }
-            $checks['Required tables'] = collect(['migrations', 'shops', 'shop_settings', 'disputes', 'email_templates', 'email_logs', 'automation_deliveries', 'webhook_events', 'privacy_requests', 'jobs', 'failed_jobs', 'email_sending_domains', 'merchant_email_senders'])->every(fn ($table) => Schema::hasTable($table));
+            $checks['Required tables'] = collect(['migrations', 'shops', 'shop_settings', 'disputes', 'email_templates', 'email_logs', 'automation_deliveries', 'webhook_events', 'privacy_requests', 'jobs', 'failed_jobs', 'email_sending_domains', 'merchant_email_senders', 'subscription_usage_periods'])->every(fn ($table) => Schema::hasTable($table));
             $migrations = array_map(fn ($file) => basename($file, '.php'), glob(database_path('migrations/*.php')));
             $checks['Migrations applied'] = Schema::hasTable('migrations') && ! array_diff($migrations, DB::table('migrations')->pluck('migration')->all());
         } catch (\Throwable) {
