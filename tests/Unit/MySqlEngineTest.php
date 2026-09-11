@@ -13,10 +13,10 @@ class MySqlEngineTest extends TestCase
         $config = config('database.connections.mysql');
         $connection = new MySqlConnection(fn () => throw new \RuntimeException('No live database needed'), 'test', '', $config);
         $connection->useDefaultSchemaGrammar();
-        $blueprint = new Blueprint('password_reset_tokens');
+        $blueprint = new Blueprint($connection, 'password_reset_tokens');
         $blueprint->create();
         $blueprint->string('email')->primary();
-        $sql = $blueprint->toSql($connection, $connection->getSchemaGrammar());
+        $sql = $blueprint->toSql();
         $this->assertStringContainsString('engine = InnoDB', $sql[0]);
         $this->assertStringContainsString('utf8mb4', $sql[0]);
     }

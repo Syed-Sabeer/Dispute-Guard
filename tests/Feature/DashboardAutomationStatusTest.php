@@ -7,13 +7,14 @@ use App\Services\Billing\BillingServiceInterface;
 use App\Services\Billing\UsageQuota;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class DashboardAutomationStatusTest extends TestCase
 {
     use RefreshDatabase, \Tests\Fixtures\ShopifyData;
 
-    /** @dataProvider statuses */
+    #[DataProvider('statuses')]
     public function test_effective_dashboard_status_preserves_preference(string $scenario, string $label, string $description): void
     {
         config([

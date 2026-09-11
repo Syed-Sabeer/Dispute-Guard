@@ -1,6 +1,6 @@
-﻿# ChargeGuard
+# ChargeGuard
 
-Embedded Shopify Payments dispute automation, built inside the existing **Laravel 10** project.
+Embedded Shopify Payments dispute automation, built inside the existing **Laravel 12** project.
 
 Customer and Test Automation emails require the merchant's exact verified business email. Standard Postmark Sender Signature verification requires mailbox ownership for each shop and no DNS; advanced domain authentication remains optional. Application-owned sending is only for verification/system operations. See [merchant sender setup and safe deployment](docs/MANAGED_SENDING.md).
 
@@ -12,7 +12,7 @@ V1 does not support external gateways, submit evidence, accept disputes, contact
 
 Implementation inventory, verification results, and the requested delivery checklist: [DELIVERY.md](docs/DELIVERY.md).
 
-- Laravel **10.50.3**, retained on 10.x; **PHP 8.2+**.
+- Laravel **12.69.2**, constrained to 12.x; **PHP 8.2+**. See the [upgrade report](docs/LARAVEL_12_UPGRADE.md).
 - MySQL, Laravel database queues, Scheduler, Laravel Mail with Postmark API transport.
 - Official **shopify/shopify-app-php v1.0.2**, with firebase/php-jwt v7.1.0 transitively.
 - Shopify GraphQL Admin API **2026-07**, Partner API for App Pricing verification.
@@ -256,7 +256,7 @@ New tables: shops, shop_settings, email_templates, disputes, automation_deliveri
 
 Supply real Shopify/Partner credentials, install a development store, verify live embedded navigation and API responses, configure plans, obtain protected data approval, authenticate SMTP/DNS, upload cPanel files, and configure cron. App Store listing/review/publication and support/privacy policy URLs remain external actions.
 
-**Laravel 10 remains as requested.** Composer audit currently reports framework advisories for email validation CRLF and temporary signed URL path confusion. This app uses strict email/control-character validation and no temporary signed URLs, but the dependency audit is not clean. Resolve maintained security support/backports before public production launch. Passing tests do not resolve unsupported framework security.
+**Laravel 12 upgrade:** The production dependency audit is clean for the upgraded lock file, including the previously reported Laravel advisories. See the [upgrade report](docs/LARAVEL_12_UPGRADE.md) for validation results and future deployment instructions. Continue running Composer audit before deployment.
 
 No Shopify approval, credentials, live SMTP delivery, cPanel deployment, or publication has been fabricated.
 
