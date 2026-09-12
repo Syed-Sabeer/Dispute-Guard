@@ -79,6 +79,73 @@ class ShopifyApiBillingTest extends TestCase
         $this->assertFalse($service->entitled($shop));
     }
 
+    public static function subscriptionCases(): array
+    {
+        return [
+            'no-charge development subscription' => [false, 'starter-base', 'current', 'ACTIVE', true],
+            'active price' => [true, 'starter-base', 'current', 'ACTIVE', true],
+            'unknown handle' => [false, 'unknown', 'current', 'INACTIVE', false],
+            'null subscription' => [false, 'starter-base', 'null', 'INACTIVE', false],
+            'expired cycle' => [false, 'starter-base', 'expired', 'INACTIVE', false],
+            'future cycle' => [false, 'starter-base', 'future', 'INACTIVE', false],
+            'reversed cycle' => [false, 'starter-base', 'reversed', 'INACTIVE', false],
+            'missing cycle' => [false, 'starter-base', 'missing', 'INACTIVE', false],
+            'malformed cycle' => [false, 'starter-base', 'malformed', 'UNVERIFIED', false],
+            'Partner API error' => [false, 'starter-base', 'error', 'UNVERIFIED', false],
+            'inactive shop' => [false, 'starter-base', 'inactive', 'UNVERIFIED', false],
+        ];
+    }
+
+    #[DataProvider('subscriptionCases')]
+    public function test_subscription_contract_and_cycle_determine_entitlement(bool $priceActive, string $handle, string $scenario, string $status, bool $entitled): void
+    {
+        $this->travelTo(now()->startOfSecond());
+        $shop = $this->shop();
+        $shop->update(['billing_status' => 'UNVERIFIED', 'quota_plan' => null, 'billing_period_start' => null, 'billing_period_end' => null]);
+        $this->app->instance('env', 'production');
+        config(['chargeguard.billing_enabled' => true, 'chargeguard.billing_enforced' => false,
+            'shopify.partner_id' => '123', 'shopify.partner_token' => 'partner-test-token',
+            'shopify.app_id' => 'gid://shopify/App/456', 'chargeguard.billing_items.starter' => 'starter-base']);
+        $start = now()->subDay();
+        $end = now()->addDays(29);
+        $cycle = ['startTime' => $start->toIso8601String(), 'endTime' => $end->toIso8601String()];
+        if ($scenario === 'expired') {
+            $cycle['endTime'] = now()->toIso8601String();
+        } elseif ($scenario === 'future') {
+            $cycle['startTime'] = now()->addDay()->toIso8601String();
+        } elseif ($scenario === 'reversed') {
+            $cycle['endTime'] = $start->copy()->subDay()->toIso8601String();
+        } elseif ($scenario === 'missing') {
+            $cycle = null;
+        } elseif ($scenario === 'malformed') {
+            $cycle['startTime'] = 'not-a-date';
+        } elseif ($scenario === 'inactive') {
+            $shop->update(['status' => 'INACTIVE']);
+        }
+        $subscription = ['currentBillingCycle' => $cycle, 'items' => [['handle' => $handle, 'price' => ['active' => $priceActive]]]];
+        $payload = $scenario === 'error' ? ['errors' => [['message' => 'throttled']]]
+            : ['data' => ['activeSubscription' => $scenario === 'null' ? null : $subscription]];
+        Http::fake(['partners.shopify.com/*' => Http::response($payload)]);
+
+        $this->assertSame($entitled, app(ShopifyAppPricingService::class)->entitled($shop));
+        $shop->refresh();
+        $this->assertSame($status, $shop->billing_status);
+        $this->assertSame($entitled ? 'starter' : null, $shop->quota_plan);
+        if ($entitled) {
+            $this->assertSame(config('chargeguard.billing.starter'), $shop->plan_handle);
+            $this->assertTrue($shop->billing_period_start->equalTo($start));
+            $this->assertTrue($shop->billing_period_end->equalTo($end));
+        } else {
+            $this->assertNull($shop->billing_period_start);
+            $this->assertNull($shop->billing_period_end);
+        }
+        if ($scenario === 'inactive') {
+            Http::assertNothingSent();
+        } else {
+            Http::assertSentCount(1);
+        }
+    }
+
     public function test_production_cannot_use_development_billing_bypass(): void
     {
         $shop = $this->shop();
