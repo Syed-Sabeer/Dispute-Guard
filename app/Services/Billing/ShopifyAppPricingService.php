@@ -38,7 +38,9 @@ class ShopifyAppPricingService implements BillingServiceInterface
                 throw new \RuntimeException;
             }
             $sub = $response->json('data.activeSubscription');
-            $items = collect($sub['items'] ?? [])->filter(fn ($i) => data_get($i, 'price.active') === true);
+            // The active contract, not the price's active flag, determines entitlement.
+            // No-charge development-store subscriptions can have price.active=false.
+            $items = collect($sub['items'] ?? []);
             $matched = $items->first(fn ($i) => in_array($i['handle'], array_values(config('chargeguard.billing_items')), true));
             $active = $sub !== null && $matched !== null;
             $plan = $matched ? array_search($matched['handle'], config('chargeguard.billing_items'), true) : null;
