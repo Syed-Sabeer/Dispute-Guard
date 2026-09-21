@@ -42,7 +42,7 @@ class UsageQuotaTest extends TestCase
         $a = $this->shop();
         $b = $this->shop();
         app(UsageQuota::class)->summary($a);
-        SubscriptionUsagePeriod::where('shop_id', $a->id)->update(['consumed' => 999]);
+        SubscriptionUsagePeriod::where('shop_id', $a->id)->update(['consumed' => 99]);
         $first = $this->process($a);
         $blocked = $this->process($a, '790');
         $this->assertSame('EMAIL_QUEUED', $first->automation_status);
@@ -51,12 +51,12 @@ class UsageQuotaTest extends TestCase
         $this->assertTrue($a->settings()->first()->auto_email_enabled);
         $this->assertSame('EMAIL_QUEUED', $this->process($b)->automation_status);
         $this->assertSame(0, app(UsageQuota::class)->summary($a)['remaining']);
-        $this->assertSame(999, app(UsageQuota::class)->summary($b)['remaining']);
-        $this->merchant($a)->get('/')->assertOk()->assertSee('1,000')->assertSee('Upgrade plan')->assertSee('Quota exhausted');
+        $this->assertSame(99, app(UsageQuota::class)->summary($b)['remaining']);
+        $this->merchant($a)->get('/')->assertOk()->assertSee('Basic')->assertSee('100')->assertSee('Upgrade plan')->assertSee('Quota exhausted');
         $oldEnd = $a->billing_period_end;
         $this->travelTo($oldEnd->copy()->addSecond());
         $a->update(['billing_period_start' => $oldEnd, 'billing_period_end' => $oldEnd->copy()->addDays(30)]);
-        $this->assertSame(1000, app(UsageQuota::class)->summary($a)['remaining']);
+        $this->assertSame(100, app(UsageQuota::class)->summary($a)['remaining']);
         $this->assertSame('MANUAL_REVIEW', $this->process($a, '790')->automation_status);
         $this->assertSame(2, AutomationDelivery::count());
     }
@@ -82,7 +82,7 @@ class UsageQuotaTest extends TestCase
         $shop->settings()->update(['store_display_name' => 'Changed']);
         app()->call([new SendDisputeCustomerEmail($delivery->id), 'handle']);
         $this->assertSame('RELEASED', $delivery->fresh()->quota_status);
-        $this->assertSame(1000, app(UsageQuota::class)->summary($shop)['remaining']);
+        $this->assertSame(100, app(UsageQuota::class)->summary($shop)['remaining']);
         Mail::assertNothingSent();
     }
 
@@ -90,15 +90,15 @@ class UsageQuotaTest extends TestCase
     {
         $shop = $this->shop();
         app(UsageQuota::class)->summary($shop);
-        SubscriptionUsagePeriod::where('shop_id', $shop->id)->update(['consumed' => 1000]);
+        SubscriptionUsagePeriod::where('shop_id', $shop->id)->update(['consumed' => 100]);
         $shop->update(['quota_plan' => 'growth']);
-        $this->assertSame(2000, app(UsageQuota::class)->summary($shop)['remaining']);
+        $this->assertSame(400, app(UsageQuota::class)->summary($shop)['remaining']);
         $delivery = $this->process($shop)->automationDeliveries()->sole();
         $shop->update(['quota_plan' => 'starter']);
         app()->call([new SendDisputeCustomerEmail($delivery->id), 'handle']);
         $this->assertSame('CANCELLED', $delivery->fresh()->status);
         $this->assertSame('RELEASED', $delivery->fresh()->quota_status);
-        $this->assertSame(1000, app(UsageQuota::class)->summary($shop)['used']);
+        $this->assertSame(100, app(UsageQuota::class)->summary($shop)['used']);
         $this->assertSame(1, SubscriptionUsagePeriod::count());
         Mail::assertNothingSent();
     }
@@ -112,7 +112,7 @@ class UsageQuotaTest extends TestCase
         $shop->update(['billing_period_start' => $end, 'billing_period_end' => $end->copy()->addDays(30)]);
         app()->call([new SendDisputeCustomerEmail($delivery->id), 'handle']);
         $this->assertSame('RELEASED', $delivery->fresh()->quota_status);
-        $this->assertSame(1000, app(UsageQuota::class)->summary($shop)['remaining']);
+        $this->assertSame(100, app(UsageQuota::class)->summary($shop)['remaining']);
         Mail::assertNothingSent();
     }
 
@@ -154,7 +154,7 @@ class UsageQuotaTest extends TestCase
 
     public function test_all_plan_caps_and_prices_are_applied_per_period(): void
     {
-        foreach (['starter' => [59, 1000], 'growth' => [99, 3000], 'pro' => [149, 10000]] as $plan => [$price, $limit]) {
+        foreach (['starter' => [29, 100], 'growth' => [59, 500], 'pro' => [99, 1000]] as $plan => [$price, $limit]) {
             $shop = $this->shop();
             $shop->update(['quota_plan' => $plan]);
             $this->assertSame($price, config('quotas.plans.'.$plan.'.price'));
@@ -162,6 +162,34 @@ class UsageQuotaTest extends TestCase
             SubscriptionUsagePeriod::where('shop_id', $shop->id)->update(['consumed' => $limit]);
             $this->assertSame(UsageQuota::EXHAUSTED, $this->process($shop)->review_reason);
         }
+    }
+
+    public function test_reduced_allowance_preserves_existing_usage_and_reservations(): void
+    {
+        $shop = $this->shop();
+        $delivery = $this->process($shop)->automationDeliveries()->sole();
+        SubscriptionUsagePeriod::where('shop_id', $shop->id)->update(['allowance' => 1000, 'consumed' => 100]);
+        $summary = app(UsageQuota::class)->summary($shop);
+        $this->assertSame('Basic', $summary['name']);
+        $this->assertSame(100, $summary['allowance']);
+        $this->assertSame(100, $summary['used']);
+        $this->assertSame(1, $summary['reserved']);
+        $this->assertSame(0, $summary['remaining']);
+        app()->call([new SendDisputeCustomerEmail($delivery->id), 'handle']);
+        $this->assertSame('RELEASED', $delivery->fresh()->quota_status);
+        $this->assertSame(100, app(UsageQuota::class)->summary($shop)['used']);
+        Mail::assertNothingSent();
+    }
+
+    public function test_pricing_displays_new_names_prices_and_allowances(): void
+    {
+        $html = view('billing.plans')->render();
+        foreach (['Basic', 'Growth', 'Pro', '$29 / month', '$59 / month', '$99 / month',
+            '100 automated', '500 automated', '1,000 automated'] as $text) {
+            $this->assertStringContainsString($text, $html);
+        }
+        $this->assertStringNotContainsString('Starter', $html);
+        $this->assertStringNotContainsString('$149', $html);
     }
 
     public function test_privacy_releases_unstarted_but_retains_inflight_consumption(): void
@@ -213,7 +241,7 @@ class UsageQuotaTest extends TestCase
                 throw new \RuntimeException('Simulated queue write failure');
             });
         } catch (\RuntimeException) {
-            $this->assertSame(1000, app(UsageQuota::class)->summary($shop)['remaining']);
+            $this->assertSame(100, app(UsageQuota::class)->summary($shop)['remaining']);
         }
         $this->assertSame(0, AutomationDelivery::count());
     }
@@ -223,7 +251,7 @@ class UsageQuotaTest extends TestCase
         $shop = $this->shop();
         $shop->update(['quota_plan' => 'growth']);
         app(UsageQuota::class)->summary($shop);
-        SubscriptionUsagePeriod::where('shop_id', $shop->id)->update(['consumed' => 999]);
+        SubscriptionUsagePeriod::where('shop_id', $shop->id)->update(['consumed' => 99]);
         $earlier = $this->process($shop)->automationDeliveries()->sole();
         $later = $this->process($shop, '790')->automationDeliveries()->sole();
         $later->update(['status' => 'SENDING', 'transport_started_at' => now()]);

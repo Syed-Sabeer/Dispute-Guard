@@ -52,7 +52,7 @@ class DashboardAutomationStatusTest extends TestCase
             case 'reserved_quota':
                 app(UsageQuota::class)->summary($shop);
                 SubscriptionUsagePeriod::where('shop_id', $shop->id)->update([
-                    'consumed' => $scenario === 'quota' ? 1000 : 999,
+                    'consumed' => $scenario === 'quota' ? 100 : 99,
                     'reserved' => $scenario === 'reserved_quota' ? 1 : 0,
                 ]);
                 break;

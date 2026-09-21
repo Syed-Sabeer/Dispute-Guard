@@ -2,9 +2,11 @@
 
 | Plan | Monthly price | Automated follow-ups per subscription period |
 | --- | ---: | ---: |
-| Starter | $59 | 1,000 |
-| Growth | $99 | 3,000 |
-| Pro | $149 | Up to 10,000 |
+| Basic | $29 | 100 |
+| Growth | $59 | 500 |
+| Pro | $99 | 1,000 |
+
+Internal handles remain `starter` (Basic), `growth` (Growth), and `pro` (Pro). Existing periods adopt the configured allowance when checked without resetting consumed or reserved usage. Rebuild the configuration cache when deploying these configuration changes.
 
 `config/quotas.php` defines these limits and display prices. Each Shopify shop has independent usage even though delivery uses the pooled Postmark account. Standard verified merchant email is the default, using Postmark signatures and per-shop mailbox proof without DNS. Advanced domain authentication is optional. No managed sender fallback is permitted for customer or test automation.
 
@@ -12,7 +14,7 @@
 
 The existing Partner API query now requests `currentBillingCycle.startTime` and `endTime`; these identify the actual shop subscription cycle. The API defines them as the period start and next charge time. [Shopify BillingCycle reference](https://shopify.dev/docs/api/partner/latest/objects/BillingCycle).
 
-Recognized active subscription item handles map to Starter/Growth/Pro. Missing, expired or malformed periods do not receive an invented calendar-month allowance. Billing verification still fails closed. The dashboard and billing/plans pages refresh subscription entitlement when billing is enabled. No billable Shopify plan is created or modified by this change; configure matching prices, monthly intervals and item handles in Shopify App Pricing before enabling billing.
+Recognized active subscription item handles map to Basic/Growth/Pro. Missing, expired or malformed periods do not receive an invented calendar-month allowance. Billing verification still fails closed. The dashboard and billing/plans pages refresh subscription entitlement when billing is enabled. No billable Shopify plan is created or modified by this change; configure matching prices, monthly intervals and item handles in Shopify App Pricing before enabling billing.
 
 Within the same cycle start, plan changes retain consumed and reserved usage. Upgrades increase capacity; downgrades reduce remaining capacity, potentially to zero. In-flight attempts retain capacity first, then earlier queued reservations have priority. A downgrade cannot recall mail already submitted, so consumed usage can exceed the new lower cap; additional sends remain blocked. A new verified cycle start creates a separate usage ledger. Counts never reset globally.
 

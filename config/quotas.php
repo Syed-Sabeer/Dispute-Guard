@@ -2,8 +2,8 @@
 
 return [
     'plans' => [
-        'starter' => ['name' => 'Starter', 'price' => 59, 'allowance' => 1000],
-        'growth' => ['name' => 'Growth', 'price' => 99, 'allowance' => 3000],
-        'pro' => ['name' => 'Pro', 'price' => 149, 'allowance' => 10000],
+        'starter' => ['name' => 'Basic', 'price' => 29, 'allowance' => 100],
+        'growth' => ['name' => 'Growth', 'price' => 59, 'allowance' => 500],
+        'pro' => ['name' => 'Pro', 'price' => 99, 'allowance' => 1000],
     ],
 ];
