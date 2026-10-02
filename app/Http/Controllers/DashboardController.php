@@ -15,7 +15,30 @@ class DashboardController extends MerchantController
     {
         $shop = $this->shop();
         // Verify before resolving usage: verification may refresh the subscription period.
-        $entitled = app(BillingServiceInterface::class)->entitled($shop);
+        $billing = app(BillingServiceInterface::class);
+        $entitled = $billing->entitled($shop);
+        $subscriptionNotice = null;
+        if (config('chargeguard.billing_enabled')) {
+            $subscriptionNotice = match ($shop->billing_status) {
+                'INACTIVE' => [
+                    'heading' => 'Subscription inactive',
+                    'message' => 'Your Dispute Guard subscription has expired or been canceled. Automatic customer follow-ups are paused. Choose a plan to continue.',
+                    'tone' => 'critical',
+                    'url' => $billing->manageUrl($shop),
+                    'label' => 'Choose a plan',
+                    'target' => '_top',
+                ],
+                'UNVERIFIED' => [
+                    'heading' => 'Subscription status unavailable',
+                    'message' => "We couldn't verify your Shopify subscription right now. Automatic customer follow-ups are paused. Refresh the Billing page or try again.",
+                    'tone' => 'warning',
+                    'url' => '/billing',
+                    'label' => 'Open Billing',
+                    'target' => '_self',
+                ],
+                default => null,
+            };
+        }
         $usage = app(UsageQuota::class)->summary($shop);
         $settings = $shop->settings;
         $pauseReason = match (true) {
@@ -48,6 +71,6 @@ class DashboardController extends MerchantController
         $risk = (clone $q)->whereIn('status', DisputeStatus::open())->selectRaw('currency, SUM(amount) as total')->groupBy('currency')->get();
 
         return $this->page('dashboard.index', ['metrics' => $metrics, 'risk' => $risk, 'disputes' => (clone $q)->latest()->limit(8)->get(),
-            'usage' => $usage, 'automationState' => $automationState]);
+            'usage' => $usage, 'automationState' => $automationState, 'subscriptionNotice' => $subscriptionNotice]);
     }
 }
