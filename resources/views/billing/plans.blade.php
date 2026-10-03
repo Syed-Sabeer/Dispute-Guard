@@ -2,8 +2,8 @@
 <div class="metrics">
 @foreach(config('quotas.plans') as $key => $plan)
 <s-section heading="{{ $plan['name'] }}">
-<s-heading>${{ $plan['price'] }} / month</s-heading>
-<s-paragraph>{{ $key === 'pro' ? 'Up to ' : '' }}{{ number_format($plan['allowance']) }} automated dispute follow-ups per billing period</s-paragraph>
+<s-heading>${{ number_format($plan['price'], 2) }} / month</s-heading>
+<s-paragraph>Up to {{ number_format($plan['allowance']) }} automated disputes per billing period</s-paragraph>
 </s-section>
 @endforeach
 </div>

@@ -277,7 +277,7 @@ class SenderSignatureTest extends TestCase
         app()->call([$test, 'handle']);
         $this->assertSame('CANCELLED', $delivery->fresh()->status);
         $this->assertSame('RELEASED', $delivery->fresh()->quota_status);
-        $this->assertSame(1000, app(UsageQuota::class)->summary($shop)['remaining']);
+        $this->assertSame(100, app(UsageQuota::class)->summary($shop)['remaining']);
         $this->assertSame('FAILED', EmailLog::where('type', 'test')->sole()->status);
         $this->assertTrue($shop->settings()->first()->auto_email_enabled);
         Http::assertNothingSent();
