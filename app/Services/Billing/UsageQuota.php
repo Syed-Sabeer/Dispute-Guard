@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 
 class UsageQuota
 {
-    public const EXHAUSTED = 'Automated follow-up quota exhausted for this billing period. Upgrade your plan to allow new disputes; this dispute requires manual review.';
+    public const EXHAUSTED = 'Dispute automation limit reached. New eligible disputes require manual review.';
 
     public const UNAVAILABLE = 'Subscription usage period is unavailable or expired. Verify billing before sending; this dispute requires manual review.';
 

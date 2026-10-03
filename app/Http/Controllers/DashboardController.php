@@ -27,7 +27,7 @@ class DashboardController extends MerchantController
                 ? 'Subscription verification is required.'
                 : 'Automation is unavailable for this shop during private prelaunch.',
             $usage === null => 'Usage period is unavailable.',
-            $usage['remaining'] === 0 => 'Monthly follow-up limit reached.',
+            $usage['remaining'] === 0 => 'Dispute automation limit reached. New eligible disputes require manual review.',
             default => null,
         };
         $automationState = ! $settings?->auto_email_enabled

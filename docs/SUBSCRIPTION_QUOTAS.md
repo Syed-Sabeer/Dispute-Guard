@@ -1,10 +1,10 @@
 # Per-shop subscription quotas
 
-| Plan | Monthly price | Automated follow-ups per subscription period |
+| Plan | Monthly price | Automated disputes per billing period |
 | --- | ---: | ---: |
-| Basic | $29 | 100 |
-| Growth | $59 | 500 |
-| Pro | $99 | 1,000 |
+| Basic | $19.99 | 100 |
+| Growth | $39.99 | 300 |
+| Pro | $49.99 | 500 |
 
 Internal handles remain `starter` (Basic), `growth` (Growth), and `pro` (Pro). Existing periods adopt the configured allowance when checked without resetting consumed or reserved usage. Rebuild the configuration cache when deploying these configuration changes.
 

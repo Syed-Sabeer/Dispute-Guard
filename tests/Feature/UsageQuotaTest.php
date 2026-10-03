@@ -52,7 +52,7 @@ class UsageQuotaTest extends TestCase
         $this->assertSame('EMAIL_QUEUED', $this->process($b)->automation_status);
         $this->assertSame(0, app(UsageQuota::class)->summary($a)['remaining']);
         $this->assertSame(99, app(UsageQuota::class)->summary($b)['remaining']);
-        $this->merchant($a)->get('/')->assertOk()->assertSee('Basic')->assertSee('100')->assertSee('Upgrade plan')->assertSee('Quota exhausted');
+        $this->merchant($a)->get('/')->assertOk()->assertSee('Basic')->assertSee('100')->assertSee('Upgrade plan')->assertSee('Dispute automation limit reached. New eligible disputes require manual review.');
         $oldEnd = $a->billing_period_end;
         $this->travelTo($oldEnd->copy()->addSecond());
         $a->update(['billing_period_start' => $oldEnd, 'billing_period_end' => $oldEnd->copy()->addDays(30)]);
@@ -92,7 +92,7 @@ class UsageQuotaTest extends TestCase
         app(UsageQuota::class)->summary($shop);
         SubscriptionUsagePeriod::where('shop_id', $shop->id)->update(['consumed' => 100]);
         $shop->update(['quota_plan' => 'growth']);
-        $this->assertSame(400, app(UsageQuota::class)->summary($shop)['remaining']);
+        $this->assertSame(200, app(UsageQuota::class)->summary($shop)['remaining']);
         $delivery = $this->process($shop)->automationDeliveries()->sole();
         $shop->update(['quota_plan' => 'starter']);
         app()->call([new SendDisputeCustomerEmail($delivery->id), 'handle']);
@@ -154,7 +154,7 @@ class UsageQuotaTest extends TestCase
 
     public function test_all_plan_caps_and_prices_are_applied_per_period(): void
     {
-        foreach (['starter' => [29, 100], 'growth' => [59, 500], 'pro' => [99, 1000]] as $plan => [$price, $limit]) {
+        foreach (['starter' => [19.99, 100], 'growth' => [39.99, 300], 'pro' => [49.99, 500]] as $plan => [$price, $limit]) {
             $shop = $this->shop();
             $shop->update(['quota_plan' => $plan]);
             $this->assertSame($price, config('quotas.plans.'.$plan.'.price'));
@@ -184,12 +184,17 @@ class UsageQuotaTest extends TestCase
     public function test_pricing_displays_new_names_prices_and_allowances(): void
     {
         $html = view('billing.plans')->render();
-        foreach (['Basic', 'Growth', 'Pro', '$29 / month', '$59 / month', '$99 / month',
-            '100 automated', '500 automated', '1,000 automated'] as $text) {
+        foreach (['Basic', 'Growth', 'Pro', '$19.99 / month', '$39.99 / month', '$49.99 / month',
+            '100 automated disputes', '300 automated disputes', '500 automated disputes'] as $text) {
             $this->assertStringContainsString($text, $html);
         }
         $this->assertStringNotContainsString('Starter', $html);
         $this->assertStringNotContainsString('$149', $html);
+        $shop = $this->shop();
+        $this->merchant($shop)->get('/')->assertOk()
+            ->assertSee('Automated dispute usage')
+            ->assertSee('0 / 100 automated disputes used')
+            ->assertSee('100 remaining');
     }
 
     public function test_privacy_releases_unstarted_but_retains_inflight_consumption(): void

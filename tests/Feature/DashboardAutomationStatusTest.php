@@ -85,8 +85,8 @@ class DashboardAutomationStatusTest extends TestCase
             'verification failed with cached active status' => ['billing', 'Automation paused', 'Subscription verification is required.'],
             'missing period' => ['missing_period', 'Automation paused', 'Usage period is unavailable.'],
             'expired period' => ['expired_period', 'Automation paused', 'Usage period is unavailable.'],
-            'quota consumed' => ['quota', 'Automation paused', 'Monthly follow-up limit reached.'],
-            'quota reserved' => ['reserved_quota', 'Automation paused', 'Monthly follow-up limit reached.'],
+            'quota consumed' => ['quota', 'Automation paused', 'Dispute automation limit reached. New eligible disputes require manual review.'],
+            'quota reserved' => ['reserved_quota', 'Automation paused', 'Dispute automation limit reached. New eligible disputes require manual review.'],
             'eligible without custom DNS' => ['enabled', 'Enabled', 'Eligible new disputes receive customer follow-ups after safety checks.'],
         ];
     }
