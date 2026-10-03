@@ -68,7 +68,7 @@ class ShopifyApiBillingTest extends TestCase
         $shop = $this->shop();
         config(['chargeguard.billing_enforced' => true, 'shopify.partner_id' => '123', 'shopify.partner_token' => 'partner-test-token', 'shopify.app_id' => 'gid://shopify/App/456', 'chargeguard.billing_items.starter' => 'starter-base']);
         Http::fake(['partners.shopify.com/*' => Http::sequence()
-            ->push(['data' => ['activeSubscription' => ['currentBillingCycle' => ['startTime' => now()->subDay()->toIso8601String(), 'endTime' => now()->addDays(29)->toIso8601String()], 'items' => [['handle' => 'starter-base', 'price' => ['active' => true]]]]]])
+            ->push(['data' => ['activeSubscription' => ['cancelAtEndOfCycle' => false, 'currentBillingCycle' => ['startTime' => now()->subDay()->toIso8601String(), 'endTime' => now()->addDays(29)->toIso8601String()], 'items' => [['handle' => 'starter-base', 'price' => ['active' => true]]]]]])
             ->push(['data' => ['activeSubscription' => null]])
             ->push(['errors' => [['message' => 'throttled']]])]);
         $service = app(ShopifyAppPricingService::class);
@@ -83,6 +83,8 @@ class ShopifyApiBillingTest extends TestCase
     {
         return [
             'no-charge development subscription' => [false, 'starter-base', 'current', 'ACTIVE', true],
+            'scheduled cancellation' => [false, 'starter-base', 'current', 'CANCELING', true, true],
+            'expired cancellation' => [false, 'starter-base', 'expired', 'INACTIVE', false, true],
             'active price' => [true, 'starter-base', 'current', 'ACTIVE', true],
             'unknown handle' => [false, 'unknown', 'current', 'INACTIVE', false],
             'null subscription' => [false, 'starter-base', 'null', 'INACTIVE', false],
@@ -97,7 +99,7 @@ class ShopifyApiBillingTest extends TestCase
     }
 
     #[DataProvider('subscriptionCases')]
-    public function test_subscription_contract_and_cycle_determine_entitlement(bool $priceActive, string $handle, string $scenario, string $status, bool $entitled): void
+    public function test_subscription_contract_and_cycle_determine_entitlement(bool $priceActive, string $handle, string $scenario, string $status, bool $entitled, bool $cancelAtEndOfCycle = false): void
     {
         $this->travelTo(now()->startOfSecond());
         $shop = $this->shop();
@@ -122,7 +124,7 @@ class ShopifyApiBillingTest extends TestCase
         } elseif ($scenario === 'inactive') {
             $shop->update(['status' => 'INACTIVE']);
         }
-        $subscription = ['currentBillingCycle' => $cycle, 'items' => [['handle' => $handle, 'price' => ['active' => $priceActive]]]];
+        $subscription = ['cancelAtEndOfCycle' => $cancelAtEndOfCycle, 'currentBillingCycle' => $cycle, 'items' => [['handle' => $handle, 'price' => ['active' => $priceActive]]]];
         $payload = $scenario === 'error' ? ['errors' => [['message' => 'throttled']]]
             : ['data' => ['activeSubscription' => $scenario === 'null' ? null : $subscription]];
         Http::fake(['partners.shopify.com/*' => Http::response($payload)]);

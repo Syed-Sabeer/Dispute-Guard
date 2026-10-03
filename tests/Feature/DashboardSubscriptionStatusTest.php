@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Services\Billing\BillingServiceInterface;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -24,6 +26,7 @@ class DashboardSubscriptionStatusTest extends TestCase
     private function activeSubscription(): array
     {
         return ['data' => ['activeSubscription' => [
+            'cancelAtEndOfCycle' => false,
             'currentBillingCycle' => ['startTime' => now()->subDay()->toIso8601String(), 'endTime' => now()->addDays(29)->toIso8601String()],
             'items' => [['handle' => config('chargeguard.billing_items.starter'), 'price' => ['active' => false]]],
         ]]];
@@ -32,6 +35,44 @@ class DashboardSubscriptionStatusTest extends TestCase
     public static function preferences(): array
     {
         return [[false, true], [true, true], [false, false], [true, false]];
+    }
+
+    public function test_scheduled_cancellation_keeps_access_until_cycle_end(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-10-03T12:00:00Z'));
+        $shop = $this->shop();
+        $shop->update(['timezone' => 'Asia/Karachi']);
+        $payload = $this->activeSubscription();
+        $payload['data']['activeSubscription']['cancelAtEndOfCycle'] = true;
+        $payload['data']['activeSubscription']['currentBillingCycle']['endTime'] = '2026-10-31T22:00:00Z';
+        Http::fake(['partners.shopify.com/*' => Http::response($payload)]);
+        $this->merchant($shop)->get('/dashboard')->assertOk()
+            ->assertSee('Subscription cancellation scheduled')->assertSee('remains active until Nov 1, 2026')
+            ->assertSee('target="_top">Manage plan', false)
+            ->assertDontSee('Subscription inactive')->assertDontSee('Subscription verification is required.')
+            ->assertViewHas('automationState', fn ($state) => $state['label'] === 'Enabled');
+        $this->assertSame('CANCELING', $shop->fresh()->billing_status);
+        Http::assertSent(fn ($request) => str_contains($request['query'], 'cancelAtEndOfCycle'));
+        $this->merchant($shop)->get('/billing')->assertOk()->assertViewHas('entitled', true)
+            ->assertSee('CANCELING')->assertDontSee('Automation requires a verified active subscription.');
+        $this->travelTo(CarbonImmutable::parse('2026-10-31T22:00:00Z'));
+        $this->merchant($shop)->get('/dashboard')->assertOk()->assertSee('Subscription inactive')
+            ->assertDontSee('Subscription cancellation scheduled');
+        $this->assertSame('INACTIVE', $shop->fresh()->billing_status);
+        $this->assertNull($shop->fresh()->billing_period_end);
+    }
+
+    public function test_canceling_notice_handles_a_missing_end_date(): void
+    {
+        $shop = $this->shop();
+        $shop->update(['billing_status' => 'CANCELING', 'billing_period_end' => null]);
+        $this->mock(BillingServiceInterface::class, function ($mock) {
+            $mock->shouldReceive('entitled')->once()->andReturn(false);
+            $mock->shouldReceive('manageUrl')->once()->andReturn(null);
+        });
+        $this->merchant($shop)->get('/dashboard')->assertOk()
+            ->assertSee('remains active until the end of the current billing period');
+        Http::assertNothingSent();
     }
 
     #[DataProvider('preferences')]

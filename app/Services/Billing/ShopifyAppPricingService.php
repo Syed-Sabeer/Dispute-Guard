@@ -38,6 +38,7 @@ class ShopifyAppPricingService implements BillingServiceInterface
                 throw new \RuntimeException;
             }
             $sub = $response->json('data.activeSubscription');
+            $cancelAtEndOfCycle = (bool) data_get($sub, 'cancelAtEndOfCycle', false);
             // The active contract, not the price's active flag, determines entitlement.
             // No-charge development-store subscriptions can have price.active=false.
             $items = collect($sub['items'] ?? []);
@@ -49,7 +50,8 @@ class ShopifyAppPricingService implements BillingServiceInterface
             $start = is_string($start) ? CarbonImmutable::parse($start)->utc() : null;
             $end = is_string($end) ? CarbonImmutable::parse($end)->utc() : null;
             $active = $active && $start && $end && $start->lte(now()) && $end->gt(now()) && $end->gt($start);
-            $shop->update(['billing_status' => $active ? 'ACTIVE' : 'INACTIVE', 'plan_handle' => $plan ? config('chargeguard.billing.'.$plan) : null,
+            $billingStatus = $active ? ($cancelAtEndOfCycle ? 'CANCELING' : 'ACTIVE') : 'INACTIVE';
+            $shop->update(['billing_status' => $billingStatus, 'plan_handle' => $plan ? config('chargeguard.billing.'.$plan) : null,
                 'quota_plan' => $active ? $plan : null, 'billing_period_start' => $active ? $start : null,
                 'billing_period_end' => $active ? $end : null, 'billing_checked_at' => now()]);
 

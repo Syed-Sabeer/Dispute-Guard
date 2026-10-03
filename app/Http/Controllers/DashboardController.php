@@ -20,6 +20,16 @@ class DashboardController extends MerchantController
         $subscriptionNotice = null;
         if (config('chargeguard.billing_enabled')) {
             $subscriptionNotice = match ($shop->billing_status) {
+                'CANCELING' => [
+                    'heading' => 'Subscription cancellation scheduled',
+                    'message' => 'Your Dispute Guard subscription has been canceled and remains active until '
+                        .($shop->billing_period_end?->copy()->timezone($shop->timezone ?: 'UTC')->format('M j, Y') ?? 'the end of the current billing period')
+                        .'. After that, automatic customer follow-ups will pause unless you choose another plan.',
+                    'tone' => 'warning',
+                    'url' => $billing->manageUrl($shop),
+                    'label' => 'Manage plan',
+                    'target' => '_top',
+                ],
                 'INACTIVE' => [
                     'heading' => 'Subscription inactive',
                     'message' => 'Your Dispute Guard subscription has expired or been canceled. Automatic customer follow-ups are paused. Choose a plan to continue.',
