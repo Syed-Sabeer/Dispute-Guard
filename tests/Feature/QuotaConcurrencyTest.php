@@ -24,7 +24,7 @@ class QuotaConcurrencyTest extends TestCase
         // committed fixtures. The runner owns and deletes this isolated database.
         $shop = $this->shop();
         app(UsageQuota::class)->summary($shop);
-        SubscriptionUsagePeriod::where('shop_id', $shop->id)->update(['consumed' => 999]);
+        SubscriptionUsagePeriod::where('shop_id', $shop->id)->update(['consumed' => 99]);
         $gate = sys_get_temp_dir().'/quota-gate-'.bin2hex(random_bytes(8));
         $workers = [];
         try {

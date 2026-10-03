@@ -87,6 +87,6 @@ class WebhookPrivacyTest extends TestCase
         $this->webhook($shop, 'shop/redact', 'redact')->assertOk();
         app()->call([new ProcessPrivacyWebhook(WebhookEvent::where('webhook_id', 'redact')->sole()->id), 'handle']);
         $this->assertDatabaseMissing('shops', ['id' => $shop->id]);
-        $this->assertDatabaseCount('email_templates',0);
+        $this->assertDatabaseCount('email_templates', 0);
     }
 }

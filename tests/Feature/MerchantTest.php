@@ -87,6 +87,6 @@ class MerchantTest extends TestCase
     {
         $shop = $this->shop();
         $this->assertStringNotContainsString('offline-test-token', DB::table('shops')->where('id', $shop->id)->value('access_token'));
-        $this->assertArrayNotHasKey('access_token',$shop->toArray());
+        $this->assertArrayNotHasKey('access_token', $shop->toArray());
     }
 }
