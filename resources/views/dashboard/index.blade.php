@@ -1,6 +1,16 @@
 @extends('layouts.app')
 @section('title','Dashboard')
 @section('content')
+@if($subscriptionNotice)
+<s-banner heading="{{ $subscriptionNotice['heading'] }}" tone="{{ $subscriptionNotice['tone'] }}">
+<s-paragraph>{{ $subscriptionNotice['message'] }}</s-paragraph>
+@if($subscriptionNotice['url'])
+<s-button href="{{ $subscriptionNotice['url'] }}" target="{{ $subscriptionNotice['target'] }}">{{ $subscriptionNotice['label'] }}</s-button>
+@else
+<s-link href="/billing">Open Billing</s-link>
+@endif
+</s-banner>
+@endif
 @include('billing.usage')
 <s-paragraph>Monitor disputes and help customers resolve their concerns.</s-paragraph>
 <s-section heading="Automation">

@@ -37,7 +37,7 @@ class TemplateRendererTest extends TestCase
         $r = new TemplateRenderer;
         foreach (['<p style="background:url(javascript:x)">x</p>', '<b/onmouseover=evil()>x</b>', '<svg><script>evil()</script></svg>'] as $input) {
             $result = $r->sanitize($input);
-            $this->assertDoesNotMatchRegularExpression('/<(?:p|b|svg|script)[^>]*[=\/]/i',$result);
+            $this->assertDoesNotMatchRegularExpression('/<(?:p|b|svg|script)[^>]*[=\/]/i', $result);
         }
     }
 }
