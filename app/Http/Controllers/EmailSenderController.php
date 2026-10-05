@@ -19,7 +19,7 @@ class EmailSenderController extends MerchantController
             'shop_id' => ['prohibited'], 'sender_id' => ['prohibited'], 'provider_signature_id' => ['prohibited'], 'provider_domain_id' => ['prohibited'], 'verification_status' => ['prohibited']]);
         $senders->save($this->shop(), $data['sender_name'], $data['sender_email'], $data['sender_mode'] ?? 'SIGNATURE');
 
-        return response()->json(['message' => 'Sender saved. Complete verification before sending customer or test automation emails.', 'reload' => true]);
+        return response()->json(['message' => 'Sender saved. Complete verification before sending customer automation emails.', 'reload' => true]);
     }
 
     public function verify(MerchantSenderService $senders)
@@ -41,6 +41,6 @@ class EmailSenderController extends MerchantController
         abort_unless($request->boolean('confirmed'), 422, 'Confirm disconnecting this sender.');
         $senders->disconnect($this->shop());
 
-        return response()->json(['message' => 'Sender disconnected. Customer and test automation emails are blocked until a sender is verified.', 'reload' => true]);
+        return response()->json(['message' => 'Sender disconnected. Customer automation emails are blocked until a sender is verified.', 'reload' => true]);
     }
 }

@@ -1,7 +1,7 @@
 @extends('layouts.app')
 @section('title','Test Automation')
 @section('content')
-<s-banner tone="warning" heading="TEST MODE">This sends a labelled sample to the test address you enter. It does not create a Shopify dispute.</s-banner>
+<s-banner tone="warning" heading="TEST MODE">This sends a labelled sample from Dispute Guard Test to the test address you enter. It does not create a Shopify dispute.</s-banner>
 <s-section heading="Sample order and shipment"><form data-api-form action="/test-automation/send"><div class="form-grid">
 <label>Dispute reason<select name="dispute_reason">@foreach(\App\Enums\DisputeReason::cases() as $reason)<option value="{{ $reason->value }}" @selected(request('dispute_reason')===$reason->value)>{{ $reason->label() }}</option>@endforeach</select></label>
 <label>Shipping state<select name="shipment_status">@foreach(\App\Enums\OrderShippingState::automatic() as $state)<option value="{{ $state->value }}" @selected(request('shipment_status')===$state->value)>{{ $state->label() }}</option>@endforeach</select></label>

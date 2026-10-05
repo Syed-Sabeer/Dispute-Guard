@@ -52,6 +52,8 @@ class MerchantTest extends TestCase
 
     public function test_test_email_uses_real_rendering_and_mailable(): void
     {
+        config(['mail.default' => 'postmark', 'services.postmark.token' => 'synthetic-server',
+            'senders.managed_address' => 'test@system-mail.com', 'senders.managed_domain' => 'system-mail.com']);
         Queue::fake();
         Mail::fake();
         $shop = $this->shop(['auto_email_enabled' => false, 'test_mode' => true]);

@@ -10,6 +10,7 @@ use App\Models\EmailTemplate;
 use App\Services\DeploymentMode;
 use App\Services\Email\EmailComposer;
 use App\Services\Email\MerchantSenderService;
+use App\Services\Email\Recipient;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Mail;
 
@@ -41,11 +42,16 @@ class SendTestAutomationEmail extends QueuedJob
             return;
         }
         $input = json_decode(Crypt::decryptString($this->encryptedInput), true, flags: JSON_THROW_ON_ERROR);
+        if (! Recipient::valid($input['customer_email'] ?? null)) {
+            $log->update(['status' => 'FAILED', 'error_message' => 'Invalid test recipient.']);
+
+            return;
+        }
         try {
             $message = $composer->compose($shop, $template, $input, true);
             if (! $this->senderIdentityHash || ! hash_equals($this->senderIdentityHash,
-                app(MerchantSenderService::class)->identityKey($shop, $message['identity']))) {
-                $log->update(['status' => 'CANCELLED', 'error_message' => 'Sender identity changed while queued. Verify your sender and submit a new test.']);
+                app(MerchantSenderService::class)->testIdentityKey($shop, $message['identity']))) {
+                $log->update(['status' => 'CANCELLED', 'error_message' => 'Test sender identity changed while queued. Submit a new test.']);
 
                 return;
             }
@@ -64,7 +70,7 @@ class SendTestAutomationEmail extends QueuedJob
 
                 return;
             }
-            $sent = app(MerchantSenderService::class)->guard($shop, $message['identity'], true, fn () => Mail::to($input['customer_email'])->send($message['mailable']));
+            $sent = app(MerchantSenderService::class)->guardTest($shop, $message['identity'], fn () => Mail::to($input['customer_email'])->send($message['mailable']));
             $log->update(['status' => 'SENT', 'sent_at' => now(), 'subject' => $message['subject'], 'rendered_body' => $message['body'],
                 'provider_message_id' => config('mail.default') === 'postmark' ? $sent?->getMessageId() : null]);
         } catch (\Throwable) {

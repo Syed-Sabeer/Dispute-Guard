@@ -14,7 +14,7 @@
 @endif
 @if($sender->verification_status !== 'REMOVED')
 <form data-api-form action="/settings/email-sender/verify"><button>Check verification</button></form>
-<form data-api-form action="/settings/email-sender/disconnect"><button data-confirm="Disconnect this sender and block customer and test automation emails?">Disconnect sender</button></form>
+<form data-api-form action="/settings/email-sender/disconnect"><button data-confirm="Disconnect this sender and block customer automation emails?">Disconnect sender</button></form>
 @endif
 </s-section>
 @endif
@@ -34,7 +34,7 @@
     </tbody></table></div>
     <s-paragraph>DNS changes can take time to propagate. After adding the records, click Check verification. Keep all records published while using this sender.</s-paragraph>
     <form data-api-form action="/settings/email-sender/verify"><div class="actions"><button>Check verification</button></div></form>
-    <form data-api-form action="/settings/email-sender/disconnect"><button data-confirm="Disconnect this sender and block customer and test automation emails?">Disconnect sender</button></form>
+    <form data-api-form action="/settings/email-sender/disconnect"><button data-confirm="Disconnect this sender and block customer automation emails?">Disconnect sender</button></form>
     @endif
 </s-section>
 @endif

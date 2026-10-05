@@ -433,9 +433,10 @@ class MerchantSenderTest extends TestCase
         Http::assertSentCount(1);
     }
 
-    public function test_test_mail_cannot_use_fallback_without_verified_sender(): void
+    public function test_test_mail_requires_configured_system_sender(): void
     {
         $shop = $this->shop();
+        config(['senders.managed_address' => 'invalid']);
         $this->expectException(EmailProviderException::class);
         app(EmailComposer::class)->compose($shop, $shop->emailTemplates()->first(), [], true);
     }

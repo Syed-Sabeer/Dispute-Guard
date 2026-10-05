@@ -21,7 +21,7 @@ class MerchantSenderService
         }
         $email = strtolower($email);
         $domain = substr(strrchr($email, '@'), 1);
-        $blocked = ['gmail.com', 'googlemail.com', 'outlook.com', 'hotmail.com', 'live.com', 'yahoo.com', 'icloud.com', 'aol.com', 'proton.me', 'protonmail.com', 'myshopify.com', 'example.com', 'example.org', 'example.net'];
+        $blocked = ['gmail.com', 'googlemail.com', 'outlook.com', 'hotmail.com', 'live.com', 'yahoo.com', 'icloud.com', 'aol.com', 'proton.me', 'protonmail.com', 'shopify.com', 'myshopify.com', 'example.com', 'example.org', 'example.net'];
         if (strlen($domain) > 190 || ! preg_match('/\A(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}\z/D', $domain)
             || preg_match('/\.(local|localhost|invalid|test|example)\z/', $domain)
             || collect($blocked)->contains(fn ($item) => $domain === $item || str_ends_with($domain, '.'.$item))) {
@@ -258,8 +258,38 @@ class MerchantSenderService
 
     public function identity(Shop $shop, bool $test = false, bool $refresh = true): array
     {
-        // Kept for old callers; neither boolean permits an application sender fallback.
-        return $this->merchantIdentity($shop, $refresh);
+        return $test ? $this->testIdentity($shop) : $this->merchantIdentity($shop, $refresh);
+    }
+
+    public function testIdentity(Shop $shop): array
+    {
+        if (! $shop->active() || config('mail.default') !== 'postmark'
+            || ! config('services.postmark.token') || config('services.postmark.token') === 'POSTMARK_API_TEST') {
+            throw new EmailProviderException('CONFIGURATION');
+        }
+        $identity = $this->systemIdentity();
+        try {
+            self::normalize($identity['email']);
+        } catch (ValidationException) {
+            throw new EmailProviderException('CONFIGURATION');
+        }
+        $identity['name'] = 'Dispute Guard Test';
+
+        return $this->withReplyTo($shop, $identity);
+    }
+
+    public function testIdentityKey(Shop $shop, array $identity): string
+    {
+        return hash('sha256', json_encode(['system-test-v1', $shop->id, $identity]));
+    }
+
+    public function guardTest(Shop $shop, array $identity, callable $send): mixed
+    {
+        if (! $shop->fresh()->active() || $this->testIdentity($shop) !== $identity) {
+            throw new EmailProviderException('CONFIGURATION');
+        }
+
+        return $send();
     }
 
     public function merchantIdentity(Shop $shop, bool $refresh = true): array
@@ -391,6 +421,10 @@ class MerchantSenderService
 
     public function guard(Shop $shop, array $identity, bool $test, callable $send): mixed
     {
+        if ($test) {
+            return $this->guardTest($shop, $identity, $send);
+        }
+
         return $this->locked($shop, function () use ($shop, $identity, $test, $send) {
             // Already holding the sender lock: refresh directly, without reacquiring it.
             if ($identity['id'] !== null && ! $this->isVerificationFresh($shop)) {

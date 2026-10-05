@@ -39,7 +39,8 @@ class EmailComposer
         if ($settings?->email_footer) {
             $body .= '<p>'.htmlspecialchars($settings->email_footer, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8').'</p>';
         }
-        $identity = app(MerchantSenderService::class)->identity($shop, $test);
+        $senders = app(MerchantSenderService::class);
+        $identity = $test ? $senders->testIdentity($shop) : $senders->merchantIdentity($shop);
         $replyTo = $identity['reply_to'];
 
         return ['subject' => $subject, 'body' => $body, 'identity' => $identity,

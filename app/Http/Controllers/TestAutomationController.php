@@ -23,13 +23,18 @@ class TestAutomationController extends MerchantController
     public function send(SendTestAutomationRequest $request)
     {
         $shop = $this->shop();
-        try {
-            $senderKey = app(MerchantSenderService::class)->revisionKey($shop);
-        } catch (EmailProviderException) {
-            throw ValidationException::withMessages(['sender_email' => 'Verify your sender email before sending a test automation email.']);
-        }
         $data = $request->validated();
         $template = $shop->emailTemplates()->where('dispute_reason', $data['dispute_reason'])->where('shipping_state', $data['shipment_status'])->firstOrFail();
+        try {
+            $senders = app(MerchantSenderService::class);
+            $senderKey = $senders->testIdentityKey($shop, $senders->testIdentity($shop));
+        } catch (EmailProviderException) {
+            $shop->emailLogs()->create(['email_template_id' => $template->id, 'type' => 'test', 'status' => 'FAILED',
+                'recipient_masked' => Recipient::mask($data['customer_email']), 'recipient_hash' => Recipient::hash($data['customer_email']),
+                'shipping_state' => $template->shipping_state, 'dispute_reason' => $template->dispute_reason,
+                'error_message' => 'The Test Automation sender is unavailable. Contact app support.']);
+            throw ValidationException::withMessages(['sender_email' => 'The Test Automation sender is unavailable. Contact app support.']);
+        }
         $data += ['support_email' => $shop->settings->support_email, 'dispute_status' => 'NEEDS_RESPONSE', 'dispute_amount' => $data['order_amount'], 'order_date' => now()->toDateString(), 'dispute_date' => now()->toDateString(), 'raw_shipment_status' => $data['shipment_status']];
         DB::transaction(function () use ($shop, $data, $template, $senderKey) {
             $log = $shop->emailLogs()->create(['email_template_id' => $template->id, 'type' => 'test', 'recipient_masked' => Recipient::mask($data['customer_email']),

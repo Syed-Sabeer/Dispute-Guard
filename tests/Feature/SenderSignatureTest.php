@@ -17,6 +17,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -84,6 +85,54 @@ class SenderSignatureTest extends TestCase
             'customer_email' => 'developer@example.com', 'order_number' => '#TEST', 'order_amount' => '49.00', 'currency' => 'USD', 'store_name' => 'Sample'];
     }
 
+    public function test_shopify_reviewer_receives_system_test_with_safe_reply_to(): void
+    {
+        $shop = $this->shop(['reply_to_email' => "bad\r\nBcc: injected", 'support_email' => 'invalid']);
+        $shop->emailSender()->update(['sender_email' => 'app.tester75@shopify.com']);
+        $this->assertFalse(app(MerchantSenderService::class)->eligible($shop));
+        $input = array_replace($this->sampleInput(), ['customer_email' => 'app.tester75@shopify.com']);
+        $this->merchant($shop)->postJson('/test-automation/send', $input)->assertOk();
+        $job = Queue::pushed(SendTestAutomationEmail::class)->first();
+        app()->call([$job, 'handle']);
+        app()->call([$job, 'handle']);
+        Http::assertSentCount(1);
+        Http::assertSent(fn ($r) => $r['From'] === '"Dispute Guard Test" <verification@system-mail.com>'
+            && $r['To'] === 'app.tester75@shopify.com' && $r['ReplyTo'] === 'verification@system-mail.com'
+            && str_starts_with($r['Subject'], '[TEST]'));
+        $this->assertSame('SENT', EmailLog::sole()->status);
+    }
+
+    public static function blockedSenderDomains(): array
+    {
+        return [['shopify.com'], ['staff.shopify.com'], ['myshopify.com'], ['gmail.com'], ['outlook.com']];
+    }
+
+    #[DataProvider('blockedSenderDomains')]
+    public function test_prohibited_production_sender_domains_remain_blocked(string $domain): void
+    {
+        $this->expectException(ValidationException::class);
+        MerchantSenderService::normalize('sender@'.$domain);
+    }
+
+    public static function unavailableTestConfiguration(): array
+    {
+        return [['senders.managed_address', 'invalid'], ['services.postmark.token', null], ['mail.default', 'log']];
+    }
+
+    #[DataProvider('unavailableTestConfiguration')]
+    public function test_system_configuration_loss_records_failure_without_sending(string $key, ?string $value): void
+    {
+        $shop = $this->shop([], false);
+        $this->merchant($shop)->postJson('/test-automation/send', $this->sampleInput())->assertOk();
+        $job = Queue::pushed(SendTestAutomationEmail::class)->first();
+        config([$key => $value]);
+        app()->call([$job, 'handle']);
+        $this->assertSame('FAILED', EmailLog::sole()->status);
+        Http::assertNothingSent();
+        $this->merchant($shop)->postJson('/test-automation/send', $this->sampleInput())->assertUnprocessable();
+        $this->assertSame(2, EmailLog::where('status', 'FAILED')->count());
+    }
+
     public function test_save_creates_pending_signature_with_account_token_and_no_dns_or_customer_email(): void
     {
         $shop = $this->shop([], false);
@@ -108,7 +157,7 @@ class SenderSignatureTest extends TestCase
     }
 
     #[DataProvider('blockedStates')]
-    public function test_unverified_sender_blocks_live_test_activation_and_dashboard_without_provider_send(string $state): void
+    public function test_unverified_sender_blocks_production_but_allows_system_test_queue(string $state): void
     {
         $shop = $this->shop([], $state !== 'missing');
         $values = match ($state) {
@@ -129,14 +178,13 @@ class SenderSignatureTest extends TestCase
         $this->assertSame('MANUAL_REVIEW', $dispute->automation_status);
         $this->assertStringContainsString('Verify your sender email', $dispute->review_reason);
         $this->assertDatabaseCount('automation_deliveries', 0);
-        $this->merchant($shop)->postJson('/test-automation/send', $this->sampleInput())->assertUnprocessable()
-            ->assertJsonValidationErrors('sender_email')->assertSee('Verify your sender email before sending a test automation email.');
+        $this->merchant($shop)->postJson('/test-automation/send', $this->sampleInput())->assertOk();
         $this->putJson('/settings', ['store_display_name' => 'Store', 'support_email' => 'support@merchant-business.com',
             'auto_email_enabled' => true, 'test_mode' => false, 'timezone' => 'UTC', 'templates_reviewed' => true])
             ->assertUnprocessable()->assertSee('Verify your sender email before activating automatic customer follow-ups.');
         $this->get('/dashboard')->assertOk()->assertSee('Automation paused')->assertDontSee('>Enabled</s-badge>', false);
         $this->assertTrue($shop->settings()->first()->auto_email_enabled);
-        Queue::assertNothingPushed();
+        Queue::assertPushed(SendTestAutomationEmail::class);
         Http::assertNotSent(fn ($r) => str_ends_with($r->url(), '/email'));
     }
 
@@ -218,21 +266,21 @@ class SenderSignatureTest extends TestCase
     }
 
     #[DataProvider('replyAddresses')]
-    public function test_both_mailables_use_exact_merchant_from_and_reply_precedence(?string $reply, ?string $support, string $expected): void
+    public function test_mailables_use_separate_production_and_test_identities_with_safe_reply_precedence(?string $reply, ?string $support, string $expected): void
     {
         $shop = $this->shop(['store_display_name' => 'ABC Fashion', 'reply_to_email' => $reply, 'support_email' => $support], false);
         $this->verify($shop);
         foreach ([false, true] as $test) {
             $message = app(EmailComposer::class)->compose($shop, $shop->emailTemplates()->first(), [], $test);
             $mail = $message['mailable']->build();
-            $this->assertTrue($mail->hasFrom('support@merchant-business.com', 'ABC Fashion'));
-            $this->assertTrue($mail->hasReplyTo($expected));
+            $this->assertTrue($mail->hasFrom($test ? 'verification@system-mail.com' : 'support@merchant-business.com', $test ? 'Dispute Guard Test' : 'ABC Fashion'));
+            $this->assertTrue($mail->hasReplyTo($test && ! $reply && ! $support ? 'verification@system-mail.com' : $expected));
             $this->assertSame($test, str_starts_with($message['subject'], '[TEST]'));
-            $this->assertFalse($mail->hasFrom('verification@system-mail.com'));
+            $this->assertSame($test, $mail->hasFrom('verification@system-mail.com'));
         }
     }
 
-    public function test_live_and_test_transport_use_merchant_sender_and_never_duplicate(): void
+    public function test_live_and_test_transport_use_separate_senders_and_never_duplicate(): void
     {
         $shop = $this->shop(['store_display_name' => 'ABC Fashion'], false);
         $this->verify($shop);
@@ -254,13 +302,13 @@ class SenderSignatureTest extends TestCase
         $this->assertSame('SENT', EmailLog::where('type', 'test')->sole()->status);
         Http::assertSentCount(2);
         foreach (Http::recorded() as [$request]) {
-            $this->assertSame('"ABC Fashion" <support@merchant-business.com>', $request['From']);
+            $this->assertSame(str_starts_with($request['Subject'], '[TEST]') ? '"Dispute Guard Test" <verification@system-mail.com>' : '"ABC Fashion" <support@merchant-business.com>', $request['From']);
             $this->assertTrue($request->hasHeader('X-Postmark-Server-Token', 'secret-server'));
             $this->assertFalse($request->hasHeader('X-Postmark-Account-Token'));
         }
     }
 
-    public function test_signature_loss_cancels_live_reservation_and_queued_test_without_switching(): void
+    public function test_signature_loss_cancels_live_reservation_but_not_system_test(): void
     {
         $shop = $this->shop([], false);
         $this->verify($shop);
@@ -274,16 +322,17 @@ class SenderSignatureTest extends TestCase
         Http::swap(new Factory);
         Http::preventStrayRequests();
         app()->call([new SendDisputeCustomerEmail($delivery->id), 'handle']);
+        $this->fakeSignatures();
         app()->call([$test, 'handle']);
         $this->assertSame('CANCELLED', $delivery->fresh()->status);
         $this->assertSame('RELEASED', $delivery->fresh()->quota_status);
         $this->assertSame(100, app(UsageQuota::class)->summary($shop)['remaining']);
-        $this->assertSame('FAILED', EmailLog::where('type', 'test')->sole()->status);
+        $this->assertSame('SENT', EmailLog::where('type', 'test')->sole()->status);
         $this->assertTrue($shop->settings()->first()->auto_email_enabled);
-        Http::assertNothingSent();
+        Http::assertSentCount(1);
     }
 
-    public function test_test_queue_cannot_switch_to_newly_verified_sender_revision(): void
+    public function test_test_queue_cannot_switch_system_identity_after_merchant_revision_changes(): void
     {
         $shop = $this->shop([], false);
         $this->verify($shop);
@@ -297,6 +346,7 @@ class SenderSignatureTest extends TestCase
         $sender->update(['ownership_verified' => true, 'provider_confirmed_at' => now(), 'verified_at' => now(), 'verification_status' => 'VERIFIED', 'last_checked_at' => now()]);
         Http::swap(new Factory);
         Http::preventStrayRequests();
+        config(['senders.managed_address' => 'changed@system-mail.com']);
         app()->call([$test, 'handle']);
         $this->assertSame('CANCELLED', EmailLog::sole()->status);
         Http::assertNothingSent();
@@ -375,8 +425,8 @@ class SenderSignatureTest extends TestCase
         config(['senders.managed_address' => 'support@fixture-merchant.com', 'senders.managed_domain' => 'fixture-merchant.com']);
         $this->assertSame('support@fixture-merchant.com', app(MerchantSenderService::class)->systemIdentity()['email']);
         $this->assertFalse(app(MerchantSenderService::class)->eligible($shop));
-        $this->merchant($shop)->postJson('/test-automation/send', $this->sampleInput())->assertUnprocessable();
-        Queue::assertNothingPushed();
+        $this->merchant($shop)->postJson('/test-automation/send', $this->sampleInput())->assertOk();
+        Queue::assertPushed(SendTestAutomationEmail::class);
         Http::assertNothingSent();
     }
 
