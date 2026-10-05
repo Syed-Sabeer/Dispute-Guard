@@ -32,8 +32,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Mail::extend('postmark', fn () => new PostmarkTransport(app(EmailProviderInterface::class)));
-        RateLimiter::for('sender-domain', fn () => Limit::perMinute(3)->by(app(CurrentShop::class)->get()->id));
-        RateLimiter::for('sender-create', fn () => Limit::perDay(10)->by(app(CurrentShop::class)->get()->id));
+        RateLimiter::for('sender-domain', fn () => Limit::perMinute(10)->by(app(CurrentShop::class)->get()->id));
+        RateLimiter::for('sender-create', fn () => Limit::perDay(50)->by(app(CurrentShop::class)->get()->id));
         if ($this->app->environment('production')) {
             URL::forceScheme('https');
         }
